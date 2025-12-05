@@ -160,9 +160,9 @@
       <!-- タブナビゲーション -->
       <div class="tab-navigation">
         <button class="tab-button active" onclick="switchTab('basic', this)">⚙️ 基本設定</button>
-        <button class="tab-button" onclick="switchTab('data', this)">📊 データ管理</button>
+        <button class="tab-button" onclick="switchTab('data', this)">📝 予約確認</button>
         <button class="tab-button" onclick="switchTab('system', this)">🔄 システム管理</button>
-        <button class="tab-button" onclick="switchTab('other', this)">🔗 その他</button>
+        <button class="tab-button" onclick="switchTab('other', this)">🔗 URL</button>
       </div>
 
       <!-- 基本設定タブ -->
@@ -225,10 +225,11 @@
             <input type="date" id="holiday-date" required>
           </div>
           <div class="form-group">
-            <label for="holiday-reason">理由:</label>
-            <input type="text" id="holiday-reason" placeholder="例: 設備点検" required>
+            <label for="holiday-reason">理由（任意）:</label>
+            <input type="text" id="holiday-reason" placeholder="例: 設備点検（空白でも可）">
           </div>
                 <button onclick="addHoliday()" class="btn btn-primary">休業日を追加</button>
+                <button onclick="addWeekendHolidays()" class="btn btn-secondary">今月の土日を自動追加</button>
               </div>
 
               <div class="admin-card">
@@ -577,14 +578,66 @@
     async function addHoliday() {
       const date = document.getElementById("holiday-date").value;
       const reason = document.getElementById("holiday-reason").value.trim();
-      if (!date || !reason) return alert("日付と理由を入力してください。");
+      if (!date) return alert("日付を入力してください。");
 
       const holidays = await apiGet('holidays.php');
-      holidays.push({ date, reason });
+      
+      // 既に同じ日付の休業日があるかチェック
+      const existingIndex = holidays.findIndex(h => h.date === date);
+      if (existingIndex >= 0) {
+        if (!confirm('この日付は既に休業日として登録されています。上書きしますか？')) {
+          return;
+        }
+        holidays[existingIndex].reason = reason || '休業日';
+      } else {
+        holidays.push({ date, reason: reason || '休業日' });
+      }
+      
       await apiPost('holidays.php', holidays);
 
       document.getElementById("holiday-date").value = "";
       document.getElementById("holiday-reason").value = "";
+      loadHolidays();
+      renderCalendar();
+    }
+
+    // 今月の土日を自動追加
+    async function addWeekendHolidays() {
+      if (!confirm('今月の土曜日と日曜日を休業日として追加しますか？\n既に登録されている日付は上書きされます。')) {
+        return;
+      }
+
+      const holidays = await apiGet('holidays.php');
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      
+      // 今月の最初の日と最後の日を取得
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      // 今月のすべての日付をチェック
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const dayOfWeek = date.getDay(); // 0=日曜日, 6=土曜日
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        // 土曜日（6）または日曜日（0）の場合
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          const reason = dayOfWeek === 0 ? '日曜日' : '土曜日';
+          
+          // 既に登録されているかチェック
+          const existingIndex = holidays.findIndex(h => h.date === dateStr);
+          if (existingIndex >= 0) {
+            holidays[existingIndex].reason = reason;
+          } else {
+            holidays.push({ date: dateStr, reason: reason });
+          }
+        }
+      }
+      
+      await apiPost('holidays.php', holidays);
+      alert('今月の土日を休業日として追加しました。');
       loadHolidays();
       renderCalendar();
     }
@@ -604,8 +657,9 @@
       list.innerHTML = sortedHolidays.map((h, i) => {
         const div = document.createElement("div");
         div.className = "menu-item";
+        const reason = h.reason || '休業日';
         div.innerHTML = `
-          <p>📅 ${h.date}　📝 ${h.reason}</p>
+          <p>📅 ${h.date}　📝 ${reason}</p>
           <button onclick="deleteHoliday(${i})" class="btn btn-danger">削除</button>
         `;
         return div.outerHTML;
@@ -1005,10 +1059,48 @@
             <p><strong>🕐 最終リセット時刻:</strong> ${status.lastResetTime || 'なし'}</p>
           </div>
         `;
+        
+        return status;
       } catch (error) {
         console.error('ステータス確認エラー:', error);
         document.getElementById('reset-status').innerHTML =
           '<p style="color: red;">ステータス確認に失敗しました。</p>';
+        return null;
+      }
+    }
+
+    // 自動リセットチェック（日付が変わっていたら自動実行）
+    async function checkAndAutoReset() {
+      try {
+        const status = await checkResetStatus();
+        
+        if (status && status.needsReset) {
+          // リセットが必要な場合、自動的に実行
+          console.log('日付が変わったため、自動リセットを実行します...');
+          
+          const response = await fetch('api/daily-reset.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            console.log('自動リセットが完了しました');
+            // ステータスを更新
+            await checkResetStatus();
+            // データを再読み込み
+            loadMenus();
+            loadReservations();
+            
+            // 通知を表示（オプション - 必要に応じてコメントアウト）
+            // alert('日次リセットが自動的に実行されました。');
+          } else {
+            console.error('自動リセットに失敗:', result.message);
+          }
+        }
+      } catch (error) {
+        console.error('自動リセットチェックエラー:', error);
       }
     }
 
@@ -1184,29 +1276,37 @@
     }
 
     window.onload = function () {
-      loadMenus();
-      loadHolidays();
-      loadDailyMenus();
-      loadReservations();
-      loadReviews();
-      loadReservationTimes();
-      renderCalendar();
-      renderLinks();
-      checkResetStatus();
-
-      // 現在の月を選択
-      const currentMonth = new Date().getMonth() + 1;
-      document.getElementById('report-month').value = currentMonth;
-
-      // 予約一覧を30秒ごとに自動更新
-      setInterval(() => {
+      // まず自動リセットチェックを実行（日付が変わっていたら自動リセット）
+      checkAndAutoReset().then(() => {
+        // リセット後、データを読み込み
+        loadMenus();
+        loadHolidays();
+        loadDailyMenus();
         loadReservations();
-      }, 30000); // 30秒
-      
-      // レビュー一覧を60秒ごとに自動更新
-      setInterval(() => {
         loadReviews();
-      }, 60000); // 60秒
+        loadReservationTimes();
+        renderCalendar();
+        renderLinks();
+
+        // 現在の月を選択
+        const currentMonth = new Date().getMonth() + 1;
+        document.getElementById('report-month').value = currentMonth;
+
+        // 予約一覧を30秒ごとに自動更新
+        setInterval(() => {
+          loadReservations();
+        }, 30000); // 30秒
+        
+        // レビュー一覧を60秒ごとに自動更新
+        setInterval(() => {
+          loadReviews();
+        }, 60000); // 60秒
+        
+        // 5分ごとに自動リセットチェック（ページを開きっぱなしの場合）
+        setInterval(() => {
+          checkAndAutoReset();
+        }, 300000); // 5分
+      });
     };
   </script>
 </body>

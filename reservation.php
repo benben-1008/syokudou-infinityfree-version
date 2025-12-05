@@ -271,7 +271,6 @@ header('Cache-Control: no-cache, max-age=0');
         $base = 'http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']);
         $pages = [
           ['name' => '生徒用サイト (index.html)', 'file' => 'index.html'],
-          ['name' => '管理者サイト (admin.html)', 'file' => 'admin.html'],
           ['name' => '予約サイト (reservation.php)', 'file' => 'reservation.php'],
           ['name' => 'マイ予約履歴 (my-reservations.php)', 'file' => 'my-reservations.php'],
           ['name' => '予約確認システム (verification.html)', 'file' => 'verification.html'],

@@ -37,8 +37,13 @@
       </section>
 
       <section class="info-section">
-        <h2>📅 今後の休業日</h2>
-        <div id="holidays-list" class="info-card"></div>
+        <div class="holiday-header" onclick="toggleHolidayList()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 10px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+          <h2 style="margin: 0;">📅 今後の休業日</h2>
+          <span id="holiday-toggle-icon" style="font-size: 20px; transition: transform 0.3s;">▼</span>
+        </div>
+        <div id="holidays-list-container" class="info-card" style="display: none;">
+          <div id="holidays-list"></div>
+        </div>
       </section>
 
       <section class="info-section">
@@ -99,8 +104,14 @@
       const todayHoliday = holidays.find(h => h.date === today);
       const todayMenu = dailyMenus.find(m => m.date === today);
 
-      if (todayHoliday) {
-        statusDiv.innerHTML = `<p>🚫 本日（${today}）は休業です。<br>理由: ${todayHoliday.reason}</p>`;
+      // 今日が土日かチェック
+      const todayObj = new Date();
+      const dayOfWeek = todayObj.getDay(); // 0=日曜日, 6=土曜日
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      
+      if (todayHoliday || isWeekend) {
+        const reason = todayHoliday?.reason || (dayOfWeek === 0 ? '日曜日' : '土曜日');
+        statusDiv.innerHTML = `<p>🚫 本日（${today}）は休業です。<br>理由: ${reason}</p>`;
         todayMenuDiv.innerHTML = "";
       } else {
         statusDiv.innerHTML = `<p>✅ 本日は営業中です。</p>`;
@@ -116,11 +127,11 @@
       const listDiv = document.getElementById("holidays-list");
       if (holidays.length === 0) {
         listDiv.innerHTML = "<p>登録された休業日はありません。</p>";
-        return;
+      } else {
+        listDiv.innerHTML = holidays
+          .map(h => `<p>📅 ${h.date}　📝 ${h.reason || '休業日'}</p>`)
+          .join("");
       }
-      listDiv.innerHTML = holidays
-        .map(h => `<p>📅 ${h.date}　📝 ${h.reason}</p>`)
-        .join("");
     }
 
     // カレンダーを生成
@@ -168,22 +179,27 @@
         const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
         const holiday = holidays.find(h => h.date === dateString);
         const dailyMenu = dailyMenus.find(m => m.date === dateString);
-        const isHoliday = !!holiday;
         const isSunday = dayOfWeek === 0;
         const isSaturday = dayOfWeek === 6;
+        // 休業日かどうか（登録されている休業日または土日）
+        const isHoliday = !!holiday || isSunday || isSaturday;
 
         let dayClass = 'calendar-day';
         let dayContent = day;
 
         if (isHoliday) {
           dayClass += ' holiday';
-          dayContent = `${day}<br><small>${holiday.reason}</small>`;
+          if (holiday && holiday.reason) {
+            dayContent = `${day}<br><small>${holiday.reason}</small>`;
+          } else if (isSunday) {
+            dayContent = `${day}<br><small>日曜日</small>`;
+          } else if (isSaturday) {
+            dayContent = `${day}<br><small>土曜日</small>`;
+          } else {
+            dayContent = `${day}<br><small>休業日</small>`;
+          }
         } else if (dailyMenu) {
           dayContent = `${day}<br><small>${dailyMenu.food}</small>`;
-        } else if (isSunday) {
-          dayClass += ' sunday';
-        } else if (isSaturday) {
-          dayClass += ' saturday';
         } else {
           dayClass += ' weekday';
         }
@@ -193,6 +209,20 @@
 
       calendarHTML += `</div></div>`;
       calendarDiv.innerHTML = calendarHTML;
+    }
+
+    // 休業日リストの折りたたみ
+    function toggleHolidayList() {
+      const container = document.getElementById('holidays-list-container');
+      const icon = document.getElementById('holiday-toggle-icon');
+      
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        icon.style.transform = 'rotate(180deg)';
+      } else {
+        container.style.display = 'none';
+        icon.style.transform = 'rotate(0deg)';
+      }
     }
 
     function renderLinks() {
