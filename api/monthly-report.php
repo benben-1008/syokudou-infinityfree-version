@@ -28,29 +28,56 @@ function readJsonSafe($file) {
 
 // 月間レポートを生成
 function generateMonthlyReport($year, $month) {
-    global $salesFile;
+    $dataDir = __DIR__ . '/../data';
+    $reservationsFile = $dataDir . '/reservations.json';
+    $archiveFile = $dataDir . '/reservations-archive.json';
+    $holidaysFile = $dataDir . '/holidays.json';
     
-    $allSales = readJsonSafe($salesFile);
-    $monthlyData = [];
+    // 予約データを読み込み（現在の予約 + アーカイブ）
+    $currentReservations = readJsonSafe($reservationsFile);
+    $archivedReservations = readJsonSafe($archiveFile);
+    $allReservations = array_merge($archivedReservations, $currentReservations);
     
-    // 指定された月のデータを抽出
-    foreach ($allSales as $sale) {
-        $saleDate = $sale['date'] ?? '';
-        $saleYear = intval(substr($saleDate, 0, 4));
-        $saleMonth = intval(substr($saleDate, 5, 2));
+    // 休業日データを読み込み
+    $allHolidays = readJsonSafe($holidaysFile);
+    
+    // 指定された月の日数を計算
+    $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+    
+    // 指定された月の休業日を抽出
+    $monthHolidays = [];
+    foreach ($allHolidays as $holiday) {
+        $holidayDate = $holiday['date'] ?? '';
+        $holidayYear = intval(substr($holidayDate, 0, 4));
+        $holidayMonth = intval(substr($holidayDate, 5, 2));
         
-        if ($saleYear === $year && $saleMonth === $month) {
-            $monthlyData[] = $sale;
+        if ($holidayYear === $year && $holidayMonth === $month) {
+            $monthHolidays[] = $holidayDate;
         }
     }
     
-    // レポートデータを集計
+    // 営業日数 = 月の日数 - 休業日数
+    $totalDays = $daysInMonth - count($monthHolidays);
+    
+    // 指定された月の予約を抽出
+    $monthReservations = [];
+    foreach ($allReservations as $reservation) {
+        $reservationDate = $reservation['date'] ?? '';
+        $reservationYear = intval(substr($reservationDate, 0, 4));
+        $reservationMonth = intval(substr($reservationDate, 5, 2));
+        
+        if ($reservationYear === $year && $reservationMonth === $month) {
+            $monthReservations[] = $reservation;
+        }
+    }
+    
+    // レポートデータを初期化
     $report = [
         'year' => $year,
         'month' => $month,
-        'totalDays' => count($monthlyData),
-        'totalReservations' => 0,
-        'totalPeople' => 0,
+        'totalDays' => $totalDays,
+        'totalReservations' => 0, // 予約した人数の合計
+        'totalPeople' => 0, // 認証済み（verified=true）の人数
         'menuSales' => [],
         'dailySales' => [],
         'timeSlotSales' => [],
@@ -60,34 +87,58 @@ function generateMonthlyReport($year, $month) {
         'busiestTimeSlot' => null
     ];
     
-    // 基本統計を計算
-    foreach ($monthlyData as $sale) {
-        $report['totalReservations'] += $sale['totalReservations'] ?? 0;
-        $report['totalPeople'] += $sale['totalPeople'] ?? 0;
+    // 日別データを初期化
+    $dailyData = [];
+    
+    // 予約データを集計
+    foreach ($monthReservations as $reservation) {
+        $date = $reservation['date'] ?? '';
+        $people = intval($reservation['people'] ?? 1); // 予約人数
+        $food = $reservation['food'] ?? '';
+        $time = $reservation['time'] ?? '';
+        $verified = isset($reservation['verified']) && ($reservation['verified'] === true || $reservation['verified'] === 'true' || $reservation['verified'] === 1);
         
-        // メニュー別売上を集計
-        foreach ($sale['menuSales'] ?? [] as $menu => $quantity) {
-            if (!isset($report['menuSales'][$menu])) {
-                $report['menuSales'][$menu] = 0;
-            }
-            $report['menuSales'][$menu] += $quantity;
+        // 日別データを初期化（まだ存在しない場合）
+        if (!isset($dailyData[$date])) {
+            $dailyData[$date] = [
+                'date' => $date,
+                'reservations' => 0, // 予約人数の合計
+                'people' => 0 // 認証済み人数
+            ];
         }
         
-        // 時間帯別売上を集計
-        foreach ($sale['timeSlots'] ?? [] as $time => $quantity) {
-            if (!isset($report['timeSlotSales'][$time])) {
-                $report['timeSlotSales'][$time] = 0;
-            }
-            $report['timeSlotSales'][$time] += $quantity;
+        // 予約人数を加算（予約数）
+        $dailyData[$date]['reservations'] += $people;
+        $report['totalReservations'] += $people;
+        
+        // 認証済みの場合のみ来客数に加算
+        if ($verified) {
+            $dailyData[$date]['people'] += $people;
+            $report['totalPeople'] += $people;
         }
         
-        // 日別データを保存
-        $report['dailySales'][] = [
-            'date' => $sale['date'],
-            'reservations' => $sale['totalReservations'] ?? 0,
-            'people' => $sale['totalPeople'] ?? 0
-        ];
+        // メニュー別売上を集計（認証済みのみ）
+        if ($verified && $food) {
+            if (!isset($report['menuSales'][$food])) {
+                $report['menuSales'][$food] = 0;
+            }
+            $report['menuSales'][$food] += $people;
+        }
+        
+        // 時間帯別売上を集計（認証済みのみ）
+        if ($verified && $time) {
+            // 時間帯を30分単位でグループ化（例: 11:00-11:30, 11:30-12:00）
+            $timeSlot = substr($time, 0, 5); // HH:MM形式
+            if (!isset($report['timeSlotSales'][$timeSlot])) {
+                $report['timeSlotSales'][$timeSlot] = 0;
+            }
+            $report['timeSlotSales'][$timeSlot] += $people;
+        }
     }
+    
+    // 日別データを配列に変換（日付順にソート）
+    ksort($dailyData);
+    $report['dailySales'] = array_values($dailyData);
     
     // 平均値を計算
     if ($report['totalDays'] > 0) {
@@ -98,7 +149,7 @@ function generateMonthlyReport($year, $month) {
     arsort($report['menuSales']);
     $report['topMenu'] = array_slice($report['menuSales'], 0, 5, true);
     
-    // 最も忙しかった日を特定
+    // 最も忙しかった日を特定（認証済み人数が最多の日）
     $maxPeople = 0;
     foreach ($report['dailySales'] as $daily) {
         if ($daily['people'] > $maxPeople) {

@@ -42,11 +42,15 @@ function writeJsonSafe($file, $data) {
 function performDailyReset() {
     global $dataDir, $today, $menuFile, $reservationsFile, $dailyMenuFile, $salesFile, $lastResetFile;
     
-    // 前日の売上データを保存
-    savePreviousDaySales();
+    // 前日の予約データをアーカイブに保存（月間レポート用）
+    savePreviousDayReservations();
     
-    // 予約データをクリア
-    writeJsonSafe($reservationsFile, []);
+    // 予約データをクリア（今日の予約のみ残す）
+    $reservations = readJsonSafe($reservationsFile);
+    $todayReservations = array_filter($reservations, function($reservation) use ($today) {
+        return isset($reservation['date']) && $reservation['date'] === $today;
+    });
+    writeJsonSafe($reservationsFile, array_values($todayReservations));
     
     // メニューの残数をリセット（デフォルト値に戻す）
     resetMenuQuantities();
@@ -63,49 +67,28 @@ function performDailyReset() {
     return true;
 }
 
-// 前日の売上データを保存
-function savePreviousDaySales() {
-    global $dataDir, $today, $reservationsFile, $salesFile;
+// 前日の予約データをアーカイブに保存（月間レポート用）
+function savePreviousDayReservations() {
+    global $dataDir, $today, $reservationsFile;
     
     $yesterday = date('Y-m-d', strtotime('-1 day'));
     $reservations = readJsonSafe($reservationsFile);
     
-    // 前日の予約データを集計
+    // 前日の予約データを抽出
     $yesterdayReservations = array_filter($reservations, function($reservation) use ($yesterday) {
         return isset($reservation['date']) && $reservation['date'] === $yesterday;
     });
     
-    // 売上データを計算
-    $salesData = [
-        'date' => $yesterday,
-        'totalReservations' => count($yesterdayReservations),
-        'totalPeople' => array_sum(array_column($yesterdayReservations, 'people')),
-        'menuSales' => [],
-        'timeSlots' => []
-    ];
+    // アーカイブファイルに保存（月間レポートで使用）
+    $archiveFile = $dataDir . '/reservations-archive.json';
+    $archivedReservations = readJsonSafe($archiveFile);
     
-    // メニュー別売上
+    // 前日の予約データをアーカイブに追加
     foreach ($yesterdayReservations as $reservation) {
-        $food = $reservation['food'] ?? '未指定';
-        if (!isset($salesData['menuSales'][$food])) {
-            $salesData['menuSales'][$food] = 0;
-        }
-        $salesData['menuSales'][$food] += $reservation['people'];
+        $archivedReservations[] = $reservation;
     }
     
-    // 時間帯別売上
-    foreach ($yesterdayReservations as $reservation) {
-        $time = $reservation['time'] ?? '未指定';
-        if (!isset($salesData['timeSlots'][$time])) {
-            $salesData['timeSlots'][$time] = 0;
-        }
-        $salesData['timeSlots'][$time] += $reservation['people'];
-    }
-    
-    // 売上データを保存
-    $allSales = readJsonSafe($salesFile);
-    $allSales[] = $salesData;
-    writeJsonSafe($salesFile, $allSales);
+    writeJsonSafe($archiveFile, $archivedReservations);
 }
 
 // メニューの残数をリセット
