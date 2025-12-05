@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>食堂専用AIアシスタント</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .page-bg {
+            background-image: url('images/olive.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.92);
+        }
+
+        .ai-settings {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .ai-settings h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+
+        .ai-settings label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-indicator.available {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-indicator.unavailable {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* 追加: アバターとメッセージレイアウト */
+        .message {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .message .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            background: #f0f0f0;
+            flex-shrink: 0;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message .content {
+            flex: 1;
+        }
+
+        .assistant-message .avatar {
+            background: #e8f5e9;
+            border-color: #c8e6c9;
+        }
+
+        .user-message .avatar {
+            background: #eef2f7;
+            border-color: #d5deea;
+        }
+
+        /* ヒーロービジュアル */
+        .ai-hero {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #fff8e1;
+            border: 1px solid #ffe0b2;
+            font-size: 18px;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+
+<body class="page-bg">
+    <div class="container">
+        <header>
+            <h1>🍽️ 食堂専用AIアシスタント</h1>
+            <p>メニュー、営業時間、予約についてお答えします</p>
+            <div class="ai-hero" aria-label="AIテーマ">
+                <span>🦙</span><span>＋</span><span>🍽️</span>
+                <span style="color:#6c757d; font-size:14px;">ラマ × 食堂</span>
+            </div>
+        </header>
+
+        <div class="chat-container">
+            <div id="chatMessages" class="chat-messages"></div>
+
+            <div class="chat-input-container">
+                <input type="text" id="chatInput" placeholder="メッセージを入力してください..." maxlength="500">
+                <button id="sendBtn">送信</button>
+            </div>
+        </div>
+
+        <div class="quick-questions">
+            <h3>よくある質問</h3>
+            <div class="quick-buttons">
+                <button class="quick-btn" data-question="今日のメニューは何ですか？">今日のメニュー</button>
+                <button class="quick-btn" data-question="営業時間を教えてください">営業時間</button>
+                <button class="quick-btn" data-question="予約はできますか？">予約について</button>
+                <button class="quick-btn" data-question="アレルギー対応はありますか？">アレルギー対応</button>
+                <button class="quick-btn" data-question="料金を教えてください">料金</button>
+                <button class="quick-btn" data-question="場所を教えてください">場所</button>
+            </div>
+
+            <div class="ai-settings">
+                <h4>AI設定</h4>
+                <label>
+                    <input type="checkbox" id="useOllama" checked> AI APIを使用する
+                </label>
+                <div id="ollamaStatus" class="status-indicator">🔄 チェック中...</div>
+            </div>
+        </div>
+
+        <section class="info-section">
+            <h2>📊 運営情報</h2>
+            <div id="ops-info" class="info-card"></div>
+        </section>
+
+        <div class="back-link">
+            <a href="index.html">← メインページに戻る</a>
+        </div>
+    </div>
+
+    <script>
+        // チャット履歴を保存
+        let chatHistory = [];
+
+        // 本番環境かどうかを判定
+        function isProductionEnvironment() {
+            const host = window.location.hostname;
+            const isLocalhost = host === 'localhost' ||
+                host === '127.0.0.1' ||
+                host === '::1' ||
+                host.includes('localhost');
+            return !isLocalhost;
+        }
+
+        // ページ読み込み完了時に実行
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('AIアシスタント（PHP版）が読み込まれました');
+
+            // 初期メッセージを表示
+            addMessageToChat('assistant', 'こんにちは！食堂のAIアシスタントです。\n\n何かお手伝いできることがございましたら、お気軽にお声かけください。');
+
+            // Ollamaの状態をチェック
+            checkOllamaStatus();
+
+            // 送信ボタンのイベントリスナー
+            const sendBtn = document.getElementById('sendBtn');
+            console.log('送信ボタン要素:', sendBtn);
+            if (sendBtn) {
+                sendBtn.addEventListener('click', function () {
+                    console.log('送信ボタンがクリックされました');
+                    sendMessage();
+                });
+                console.log('送信ボタンのイベントリスナーを設定しました');
+            } else {
+                console.error('送信ボタンが見つかりません');
+            }
+
+            // 入力フィールドのEnterキーイベント
+            const chatInput = document.getElementById('chatInput');
+            console.log('入力フィールド要素:', chatInput);
+            if (chatInput) {
+                chatInput.addEventListener('keypress', function (e) {
+                    console.log('キーが押されました:', e.key);
+                    if (e.key === 'Enter') {
+                        console.log('Enterキーが押されました');
+                        sendMessage();
+                    }
+                });
+                console.log('入力フィールドのイベントリスナーを設定しました');
+            } else {
+                console.error('入力フィールドが見つかりません');
+            }
+
+            // クイック質問ボタンのイベントリスナー
+            const quickButtons = document.querySelectorAll('.quick-btn');
+            console.log('クイック質問ボタンの数:', quickButtons.length);
+            quickButtons.forEach((button, index) => {
+                console.log(`クイックボタン${index + 1}:`, button);
+                button.addEventListener('click', function () {
+                    console.log('クイックボタンがクリックされました:', this.textContent);
+                    const question = this.getAttribute('data-question');
+                    console.log('質問内容:', question);
+                    document.getElementById('chatInput').value = question;
+                    sendMessage();
+                });
+            });
+
+            // 運営情報を読み込み
+            loadOpsInfo();
+        });
+
+        // Ollamaの状態をチェック
+        async function checkOllamaStatus() {
+            try {
+                console.log('Ollama状態をチェック中...');
+
+                const response = await fetch('api/ai-response.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: 'test',
+                        useOllama: false
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const statusElement = document.getElementById('ollamaStatus');
+
+                    console.log('Ollama状態チェック結果:', data);
+
+                    if (data.ollamaAvailable) {
+                        statusElement.innerHTML = '✅ AI API 利用可能（クラウドサービス）';
+                        statusElement.className = 'status-indicator available';
+                        console.log('AI API が利用可能です（クラウドサービス）');
+                    } else {
+                        statusElement.innerHTML = '❌ AI API 利用不可（基本応答システムを使用）';
+                        statusElement.className = 'status-indicator unavailable';
+                        document.getElementById('useOllama').checked = false;
+                        console.log('AI API が利用不可です');
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                console.error('Ollama状態チェックエラー:', error);
+                const statusElement = document.getElementById('ollamaStatus');
+                statusElement.innerHTML = '❌ API接続エラー（基本応答システムを使用）';
+                statusElement.className = 'status-indicator unavailable';
+                document.getElementById('useOllama').checked = false;
+            }
+        }
+
+        // 運営情報（定食・休業日・予約時間・予約人数/混雑予測）
+        async function loadOpsInfo() {
+            const opsDiv = document.getElementById('ops-info');
+            if (!opsDiv) return;
+
+            const API_BASE = 'api/';
+            async function apiGet(path) {
+                const res = await fetch(API_BASE + path, { cache: 'no-store' });
+                if (!res.ok) throw new Error('GET failed: ' + path);
+                return await res.json();
+            }
+
+            try {
+                const [holidays, dailyMenus, reservationTimes, reservations] = await Promise.all([
+                    apiGet('holidays.php'),
+                    apiGet('daily-menu.php'),
+                    apiGet('reservation-times.php'),
+                    apiGet('reservations.php')
+                ]);
+
+                const today = new Date().toISOString().split('T')[0];
+                const todayMenu = (dailyMenus || []).find(m => m.date === today);
+                const todayHoliday = (holidays || []).find(h => h.date === today);
+
+                // 予約人数（本日）
+                const todaysReservations = (reservations || []).filter(r => (r.createdAt || '').startsWith(today));
+                const reservationCount = todaysReservations.length;
+
+                // 混雑予測（単純なルール）
+                let congestion = '空いています';
+                if (reservationCount >= 30) congestion = '非常に混雑';
+                else if (reservationCount >= 15) congestion = 'やや混雑';
+
+                // 予約時間表示
+                let timeHtml = '';
+                if (reservationTimes && reservationTimes.enabled) {
+                    timeHtml = `⏰ 予約時間: ${reservationTimes.startTime} - ${reservationTimes.endTime}<br>`;
+                } else {
+                    timeHtml = '⏰ 予約時間: 制限なし（いつでも予約可能）<br>';
+                }
+
+                opsDiv.innerHTML = `
+                    <div style="line-height:1.8;">
+                        <p><strong>📅 本日の営業状況:</strong> ${todayHoliday ? `🚫 休業（理由: ${todayHoliday.reason}）` : '✅ 営業予定'}</p>
+                        <p><strong>🍽️ 本日の定食:</strong> ${todayMenu ? todayMenu.food : '未設定'}</p>
+                        <p>${timeHtml}<strong>👥 本日の予約人数:</strong> ${reservationCount}人<br>
+                        <strong>📈 混雑予測:</strong> ${congestion}</p>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('運営情報の読み込みに失敗:', e);
+                opsDiv.innerHTML = '<p style="color:#dc3545;">運営情報の読み込みに失敗しました。</p>';
+            }
+        }
+
+        // メッセージをチャットに追加
+        function addMessageToChat(sender, message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+
+            const senderName = sender === 'user' ? 'あなた' : 'AIアシスタント';
+            const avatarEmoji = sender === 'user' ? '👤' : '🦙🍽️';
+            messageDiv.innerHTML = `
+                <div class="avatar" aria-hidden="true">${avatarEmoji}</div>
+                <div class="content">
+                    <div class="message-header">
+                        <strong>${senderName}</strong>
+                        <span class="message-time">${new Date().toLocaleTimeString('ja-JP')}</span>
+                    </div>
+                    <div class="message-content">${message.replace(/\n/g, '<br>')}</div>
+                </div>
+            `;
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // メッセージを送信
+        async function sendMessage() {
+            console.log('sendMessage関数が呼び出されました');
+            const chatInput = document.getElementById('chatInput');
+            const userMessage = chatInput.value.trim();
+
+            console.log('入力されたメッセージ:', userMessage);
+
+            if (!userMessage) {
+                console.log('メッセージが空のため送信をキャンセル');
+                return;
+            }
+
+            console.log('ユーザーメッセージを表示中...');
+            // ユーザーメッセージを表示
+            addMessageToChat('user', userMessage);
+            chatInput.value = '';
+
+            // チャット履歴に追加
+            chatHistory.push({ sender: 'user', message: userMessage });
+
+            // AIの応答を生成（PHP API経由）
+            try {
+                console.log('PHP APIにリクエストを送信中...');
+
+                const useOllama = document.getElementById('useOllama').checked;
+
+                // チャット履歴をAPI形式に変換（直近6ターンまで）
+                const historyForAPI = chatHistory.slice(-6).map(msg => ({
+                    role: msg.sender === 'user' ? 'user' : 'assistant',
+                    content: msg.message
+                }));
+
+                const response = await fetch('api/ai-response.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: userMessage,
+                        history: historyForAPI,
+                        useOllama: useOllama
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`PHP API Error: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('PHP APIからの応答:', data);
+
+                // Ollamaの使用状況をコンソールに表示
+                console.log('=== AI API 使用状況 ===');
+                console.log('Ollama利用可能:', data.ollamaAvailable);
+                console.log('Ollama使用:', data.ollamaUsed);
+                console.log('APIタイプ:', data.apiType);
+                if (data.debug) {
+                    console.log('デバッグ情報:', data.debug);
+                }
+                console.log('========================');
+
+                if (data && data.response) {
+                    // エラーメッセージが含まれている場合、より詳細な情報を表示
+                    let responseText = data.response;
+
+                    // デバッグ情報がある場合、コンソールに詳細を表示
+                    if (data.debug && !data.ollamaUsed) {
+                        console.warn('Ollamaが使用されていません。');
+                        console.warn('デバッグ情報:', data.debug);
+
+                        // ユーザーに分かりやすいメッセージを追加
+                        if (!data.ollamaAvailable) {
+                            responseText += '\n\n💡 **ヒント**: Ollamaが起動していない可能性があります。ターミナルで "ollama serve" を実行してください。';
+                        } else if (!data.debug.useOllama) {
+                            responseText += '\n\n💡 **ヒント**: 「AI APIを使用する」にチェックが入っているか確認してください。';
+                        }
+                    }
+
+                    // AIの応答を表示
+                    addMessageToChat('assistant', responseText);
+                    chatHistory.push({ sender: 'assistant', message: data.response });
+                } else {
+                    throw new Error('PHP APIからの応答が無効です');
+                }
+
+            } catch (error) {
+                console.error('PHP API呼び出しエラー:', error);
+                console.log('エラーの詳細:', error.message);
+
+                // フォールバックとして基本的な応答を表示
+                const fallbackResponse = generateBasicResponse(userMessage);
+                addMessageToChat('assistant', fallbackResponse + '\n\n⚠️ *API接続エラーのため基本応答システムを使用しました*');
+                chatHistory.push({ sender: 'assistant', message: fallbackResponse });
+            }
+        }
+
+        // 基本的な応答を生成（フォールバック用）
+        function generateBasicResponse(userMessage) {
+            const message = userMessage.toLowerCase();
+
+            // 天気に関する質問
+            if (message.includes('天気') || message.includes('weather')) {
+                return `申し訳ございませんが、天気予報については食堂のAIアシスタントではお答えできません。
+
+食堂について以下の内容でしたらお答えできます：
+
+🍽️ メニューについて
+⏰ 営業時間について  
+📝 予約について
+⚠️ アレルギー対応について
+💰 料金について
+📍 場所について
+
+食堂に関するご質問をお聞かせください。`;
+            }
+
+            // 時間に関する質問
+            if (message.includes('今何時') || message.includes('時間') || message.includes('時刻')) {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('ja-JP', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+                return `現在の時刻は${timeString}です。
+
+食堂の営業時間は平日11:30-13:00ですので、${now.getHours() >= 11 && now.getHours() < 13 ? '現在営業中です' : '現在は営業時間外です'}。
+
+他にご質問がございましたらお聞かせください。`;
+            }
+
+            // メニューに関する質問
+            if (message.includes('メニュー') || message.includes('料理') || message.includes('食べ物') || message.includes('今日')) {
+                return `今日のメニューは以下の通りです：
+
+🍽️ **今日の定食**
+
+🍛 **日替わり定食** - 550円
+・主菜：とんかつ
+・副菜：サラダ、味噌汁
+・ご飯、漬物
+
+🍜 **麺類**
+・醤油ラーメン - 450円
+・かけうどん - 350円
+
+🍚 **丼物**
+・親子丼 - 400円
+・カツ丼 - 450円
+
+🥤 **飲み物**
+・コーヒー - 100円
+・紅茶 - 100円
+・ジュース - 120円
+
+**営業時間：** 平日 11:30-13:00
+**支払い方法：** 現金、学食カード
+
+他にご質問がございましたらお聞かせください。`;
+            }
+
+            // 挨拶
+            if (message.includes('こんにちは') || message.includes('こんばんは') || message.includes('おはよう') || message.includes('hello') || message.includes('hi')) {
+                return `こんにちは！食堂のAIアシスタントです。
+
+何かお手伝いできることがございましたら、お気軽にお声かけください。
+
+🍽️ メニューについて
+⏰ 営業時間について  
+📝 予約について
+⚠️ アレルギー対応について
+💰 料金について
+📍 場所について
+
+どのようなご質問でもお受けいたします！`;
+            }
+
+            // デフォルトの応答
+            return `申し訳ございませんが、その質問にはお答えできません。
+
+食堂について以下の内容でしたらお答えできます：
+
+🍽️ メニューについて
+⏰ 営業時間について  
+📝 予約について
+⚠️ アレルギー対応について
+💰 料金について
+📍 場所について
+
+具体的なご質問をお聞かせください。`;
+        }
+    </script>
+</body>
+
+</html>

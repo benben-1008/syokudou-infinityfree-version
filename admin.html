@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>オリミル - 管理サイト</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* 背景画像設定（olive） */
+    .page-bg {
+      background-image: url('images/olive.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
+
+    /* 可読性向上のための半透明背景 */
+    .container {
+      background-color: rgba(255, 255, 255, 0.92);
+    }
+
+    /* カレンダー用の簡単なデザイン */
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      text-align: center;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .calendar div {
+      padding: 5px;
+    }
+
+    .holiday {
+      background-color: #ffcccc;
+      border-radius: 6px;
+    }
+
+    /* タブナビゲーション */
+    .tab-navigation {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 10px;
+    }
+
+    .tab-button {
+      padding: 12px 24px;
+      background-color: #f8f9fa;
+      border: 2px solid #ddd;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.3s;
+      border-bottom: none;
+    }
+
+    .tab-button:hover {
+      background-color: #e9ecef;
+    }
+
+    .tab-button.active {
+      background-color: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* アコーディオン */
+    .accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+
+    .accordion-header:hover {
+      background-color: #e9ecef;
+    }
+
+    .accordion-header h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .accordion-icon {
+      font-size: 20px;
+      transition: transform 0.3s;
+    }
+
+    .accordion-header.active .accordion-icon {
+      transform: rotate(180deg);
+    }
+
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .accordion-content.active {
+      max-height: 5000px;
+      transition: max-height 0.5s ease-in;
+    }
+
+    .accordion-body {
+      padding: 20px;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      margin-bottom: 10px;
+    }
+
+    /* グリッドレイアウト */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body class="page-bg">
+  <div class="container">
+    <header>
+      <h1>🔧 オリミル</h1>
+      <p>管理用サイト</p>
+    </header>
+
+    <main>
+      <!-- タブナビゲーション -->
+      <div class="tab-navigation">
+        <button class="tab-button active" onclick="switchTab('basic', this)">⚙️ 基本設定</button>
+        <button class="tab-button" onclick="switchTab('data', this)">📊 データ管理</button>
+        <button class="tab-button" onclick="switchTab('system', this)">🔄 システム管理</button>
+        <button class="tab-button" onclick="switchTab('other', this)">🔗 その他</button>
+      </div>
+
+      <!-- 基本設定タブ -->
+      <div id="tab-basic" class="tab-content active">
+      <!-- 🔹 メニュー管理 -->
+      <section class="admin-section">
+        <div class="accordion-header active" onclick="toggleAccordion(this)">
+          <h3>🍱 メニュー管理</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content active">
+          <div class="accordion-body">
+            <div class="grid-2">
+              <div class="admin-card">
+                <h3>メニューを追加</h3>
+          <div class="form-group">
+            <label for="menu-name">メニュー名:</label>
+            <input type="text" id="menu-name" placeholder="例: カレー" required>
+          </div>
+          <div class="form-group">
+            <label for="menu-stock">提供可能数:</label>
+            <input type="number" id="menu-stock" placeholder="例: 30">
+          </div>
+          <div class="form-group">
+            <label
+              style="display: flex; align-items: center; font-weight: bold; color: #e74c3c; font-size: 16px; padding: 12px; background-color: #fff5f5; border: 2px solid #e74c3c; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+              <input type="checkbox" id="unlimited-stock" onchange="toggleStockInput()"
+                style="margin-right: 12px; transform: scale(2.0); cursor: pointer;">
+              ♾️ 無制限で提供（在庫管理なし）
+            </label>
+          </div>
+                <button onclick="addMenu()" class="btn btn-primary">メニューを追加</button>
+              </div>
+
+              <div class="admin-card">
+                <h3>現在のメニュー一覧</h3>
+                <div style="margin-bottom:10px;">
+                  <button onclick="resetMenuStocks()" class="btn btn-secondary">残数をリセット</button>
+                </div>
+                <div id="menu-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 🔹 休業日設定 -->
+      <section class="admin-section">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <h3>📅 休業日設定</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div class="accordion-body">
+            <div class="grid-2">
+              <div class="admin-card">
+                <h3>休業日を追加</h3>
+          <div class="form-group">
+            <label for="holiday-date">日付:</label>
+            <input type="date" id="holiday-date" required>
+          </div>
+          <div class="form-group">
+            <label for="holiday-reason">理由:</label>
+            <input type="text" id="holiday-reason" placeholder="例: 設備点検" required>
+          </div>
+                <button onclick="addHoliday()" class="btn btn-primary">休業日を追加</button>
+              </div>
+
+              <div class="admin-card">
+                <h3>🗓 カレンダー表示</h3>
+                <div id="calendar" class="calendar"></div>
+              </div>
+            </div>
+            <div class="admin-card">
+              <h3>現在の休業日一覧</h3>
+              <div id="holidays-list" class="holidays-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 🔹 定食設定 -->
+      <section class="admin-section">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <h3>🍽️ 定食設定</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div class="accordion-body">
+            <div class="grid-2">
+              <div class="admin-card">
+                <h3>日別定食を設定</h3>
+          <div class="form-group">
+            <label for="daily-menu-date">日付:</label>
+            <input type="date" id="daily-menu-date" required>
+          </div>
+          <div class="form-group">
+            <label for="daily-menu-food">定食メニュー:</label>
+            <input type="text" id="daily-menu-food" placeholder="例: カレーライス、日替わり定食" required>
+          </div>
+                <button onclick="addDailyMenu()" class="btn btn-primary">定食を設定</button>
+              </div>
+
+              <div class="admin-card">
+                <h3>現在の定食設定一覧</h3>
+                <div id="daily-menu-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 🔹 予約時間設定 -->
+      <section class="admin-section">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <h3>⏰ 予約時間設定</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div class="accordion-body">
+            <div class="grid-2">
+              <div class="admin-card">
+                <h3>予約可能時間を設定</h3>
+                <div class="form-group">
+                  <label for="reservation-start-time">開始時間:</label>
+                  <input type="time" id="reservation-start-time" required>
+                </div>
+                <div class="form-group">
+                  <label for="reservation-end-time">終了時間:</label>
+                  <input type="time" id="reservation-end-time" required>
+                </div>
+                <div class="form-group">
+                  <label for="reservation-message">表示メッセージ:</label>
+                  <input type="text" id="reservation-message" placeholder="例: 予約時間: 11:30-12:45">
+                </div>
+                <p style="color: #666; font-size: 14px; margin-top: -10px; margin-bottom: 10px;">
+                  ※ 予約時間を設定すると、自動的に有効になります
+                </p>
+                <button onclick="updateReservationTimes()" class="btn btn-primary">予約時間を更新</button>
+              </div>
+
+              <div class="admin-card">
+                <h3>現在の予約時間設定</h3>
+                <div id="reservation-times-display"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      </div>
+
+      <!-- データ管理タブ -->
+      <div id="tab-data" class="tab-content">
+      <!-- 🔹 予約一覧 -->
+      <section class="admin-section">
+        <div class="accordion-header active" onclick="toggleAccordion(this)">
+          <h3>📝 予約一覧</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content active">
+          <div class="accordion-body">
+            <div class="admin-card">
+              <h3>予約状況</h3>
+          <div style="margin-bottom:10px;">
+            <button onclick="loadReservations()" class="btn btn-primary">予約一覧を更新</button>
+            <button onclick="resetReservations()" class="btn btn-danger">予約をリセット</button>
+          </div>
+              <div id="reservations-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 🔹 レビュー一覧 -->
+      <section class="admin-section">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <h3>⭐ レビュー一覧</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div class="accordion-body">
+            <div class="admin-card">
+              <h3>投稿されたレビュー</h3>
+              <div style="margin-bottom:10px;">
+                <button onclick="loadReviews()" class="btn btn-primary">レビュー一覧を更新</button>
+              </div>
+              <div id="reviews-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      </div>
+
+      <!-- システム管理タブ -->
+      <div id="tab-system" class="tab-content">
+      <!-- 🔹 日次リセット管理 -->
+      <section class="admin-section">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <h3>🔄 日次リセット管理</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div class="accordion-body">
+            <div class="admin-card">
+              <h3>自動リセット設定</h3>
+          <div style="margin-bottom:10px;">
+            <button onclick="performDailyReset()" class="btn btn-primary">手動でリセット実行</button>
+            <button onclick="checkResetStatus()" class="btn btn-secondary">リセット状況確認</button>
+          </div>
+              <div id="reset-status"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 🔹 月間レポート -->
+      <section class="admin-section">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <h3>📊 月間レポート</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div class="accordion-body">
+            <div class="admin-card">
+              <h3>レポート生成</h3>
+              <div class="form-group">
+                <label for="report-year">年:</label>
+                <select id="report-year">
+                  <option value="2024">2024年</option>
+                  <option value="2025" selected>2025年</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="report-month">月:</label>
+                <select id="report-month">
+                  <option value="1">1月</option>
+                  <option value="2">2月</option>
+                  <option value="3">3月</option>
+                  <option value="4">4月</option>
+                  <option value="5">5月</option>
+                  <option value="6">6月</option>
+                  <option value="7">7月</option>
+                  <option value="8">8月</option>
+                  <option value="9">9月</option>
+                  <option value="10">10月</option>
+                  <option value="11">11月</option>
+                  <option value="12">12月</option>
+                </select>
+              </div>
+              <div style="margin-bottom:10px;">
+                <button onclick="generateReport()" class="btn btn-primary">レポート生成</button>
+                <button onclick="downloadReport()" class="btn btn-success">Excel形式でダウンロード</button>
+              </div>
+              <div id="report-display"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      </div>
+
+      <!-- その他タブ -->
+      <div id="tab-other" class="tab-content">
+      <section class="admin-section">
+        <div class="accordion-header active" onclick="toggleAccordion(this)">
+          <h3>🔗 URLリンク</h3>
+          <span class="accordion-icon">▼</span>
+        </div>
+        <div class="accordion-content active">
+          <div class="accordion-body">
+            <div id="page-links" class="admin-card"></div>
+          </div>
+        </div>
+      </section>
+      </div>
+
+    </main>
+
+    <footer>
+      <p>&copy; 2025 学校食堂管理システム</p>
+    </footer>
+  </div>
+
+  <script>
+    // === API ヘルパー ===
+    const API_BASE = 'api/';
+    async function apiGet(path) {
+      const res = await fetch(API_BASE + path, { cache: 'no-store' });
+      if (!res.ok) throw new Error('GET failed: ' + path);
+      return await res.json();
+    }
+    async function apiPost(path, data) {
+      const res = await fetch(API_BASE + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error('POST failed: ' + path);
+      return await res.json();
+    }
+    // === メニュー管理 ===
+    function toggleStockInput() {
+      const stockInput = document.getElementById("menu-stock");
+      const unlimitedCheckbox = document.getElementById("unlimited-stock");
+
+      if (unlimitedCheckbox.checked) {
+        stockInput.disabled = true;
+        stockInput.value = "";
+        stockInput.placeholder = "無制限";
+      } else {
+        stockInput.disabled = false;
+        stockInput.placeholder = "例: 30";
+      }
+    }
+
+    async function loadMenus() {
+      const list = document.getElementById("menu-list");
+      list.innerHTML = "";
+      let menus = await apiGet('menu.php');
+
+      // 既存データの初期在庫フィールドを補完（初回のみ）
+      let needsSave = false;
+      menus.forEach(m => {
+        if (typeof m.initialStock !== 'number' || m.initialStock <= 0) {
+          m.initialStock = m.stock;
+          needsSave = true;
+        }
+      });
+      if (needsSave) {
+        await apiPost('menu.php', menus);
+      }
+
+      if (!menus || menus.length === 0) {
+        list.innerHTML = "<p>メニューが登録されていません。</p>";
+        return;
+      }
+
+      menus.forEach((m, i) => {
+        const div = document.createElement("div");
+        div.className = "menu-item";
+        const stockDisplay = m.stock === -1 ? "無制限" : `${m.stock}食`;
+        div.innerHTML = `
+          <p>🍱 ${m.name}　残り: ${stockDisplay}</p>
+          <div style="display: flex; gap: 5px;">
+            <button onclick="editMenuStock(${i})" class="btn btn-secondary">残数変更</button>
+            <button onclick="deleteMenu(${i})" class="btn btn-danger">削除</button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    async function addMenu() {
+      const name = document.getElementById("menu-name").value.trim();
+      const unlimitedCheckbox = document.getElementById("unlimited-stock");
+      const stockInput = document.getElementById("menu-stock");
+
+      if (!name) return alert("メニュー名を入力してください。");
+
+      let stock, initialStock;
+      if (unlimitedCheckbox.checked) {
+        stock = -1; // 無制限を-1で表現
+        initialStock = -1;
+      } else {
+        stock = parseInt(stockInput.value);
+        if (!stock || stock <= 0) return alert("提供数を正しく入力してください。");
+        initialStock = stock;
+      }
+
+      const menus = await apiGet('menu.php');
+      menus.push({ name, stock, initialStock });
+      await apiPost('menu.php', menus);
+
+      document.getElementById("menu-name").value = "";
+      document.getElementById("menu-stock").value = "";
+      document.getElementById("unlimited-stock").checked = false;
+      stockInput.disabled = false;
+      stockInput.placeholder = "例: 30";
+      loadMenus();
+    }
+
+    async function editMenuStock(index) {
+      const menus = await apiGet('menu.php');
+      const menu = menus[index];
+
+      const newStock = prompt(`${menu.name}の残数を変更してください（現在: ${menu.stock === -1 ? '無制限' : menu.stock}）`, menu.stock === -1 ? '' : menu.stock);
+
+      if (newStock === null) return; // キャンセル
+
+      if (newStock === '' || newStock === '無制限') {
+        menu.stock = -1;
+      } else {
+        const stock = parseInt(newStock);
+        if (isNaN(stock) || stock < 0) {
+          alert('有効な数値を入力してください。');
+          return;
+        }
+        menu.stock = stock;
+      }
+
+      await apiPost('menu.php', menus);
+      loadMenus();
+    }
+
+    async function deleteMenu(index) {
+      const menus = await apiGet('menu.php');
+      menus.splice(index, 1);
+      await apiPost('menu.php', menus);
+      loadMenus();
+    }
+
+    // === 休業日管理 ===
+    async function addHoliday() {
+      const date = document.getElementById("holiday-date").value;
+      const reason = document.getElementById("holiday-reason").value.trim();
+      if (!date || !reason) return alert("日付と理由を入力してください。");
+
+      const holidays = await apiGet('holidays.php');
+      holidays.push({ date, reason });
+      await apiPost('holidays.php', holidays);
+
+      document.getElementById("holiday-date").value = "";
+      document.getElementById("holiday-reason").value = "";
+      loadHolidays();
+      renderCalendar();
+    }
+
+    async function loadHolidays() {
+      const holidays = await apiGet('holidays.php');
+      const list = document.getElementById("holidays-list");
+
+      if (!holidays || holidays.length === 0) {
+        list.innerHTML = "<p>休業日は登録されていません。</p>";
+        return;
+      }
+
+      // 日付順にソート
+      const sortedHolidays = holidays.sort((a, b) => a.date.localeCompare(b.date));
+
+      list.innerHTML = sortedHolidays.map((h, i) => {
+        const div = document.createElement("div");
+        div.className = "menu-item";
+        div.innerHTML = `
+          <p>📅 ${h.date}　📝 ${h.reason}</p>
+          <button onclick="deleteHoliday(${i})" class="btn btn-danger">削除</button>
+        `;
+        return div.outerHTML;
+      }).join('');
+    }
+
+    async function deleteHoliday(index) {
+      if (!confirm('この休業日を削除しますか？')) return;
+
+      const holidays = await apiGet('holidays.php');
+      holidays.splice(index, 1);
+      await apiPost('holidays.php', holidays);
+
+      // カレンダーを再描画してから休業日一覧を更新
+      await renderCalendar();
+      loadHolidays();
+    }
+
+    // === カレンダー表示 ===
+    async function renderCalendar() {
+      const calendar = document.getElementById("calendar");
+      const holidays = await apiGet('holidays.php');
+      const dailyMenus = await apiGet('daily-menu.php');
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth(); // 0始まり
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startWeekday = firstDay.getDay();
+
+      calendar.innerHTML = "";
+
+      // 曜日
+      ["日", "月", "火", "水", "木", "金", "土"].forEach(d => {
+        const div = document.createElement("div");
+        div.innerHTML = `<strong>${d}</strong>`;
+        calendar.appendChild(div);
+      });
+
+      // 空欄
+      for (let i = 0; i < startWeekday; i++) {
+        const blank = document.createElement("div");
+        calendar.appendChild(blank);
+      }
+
+      // 日付
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const div = document.createElement("div");
+        const holiday = holidays.find(h => h.date === dateStr);
+        const dailyMenu = dailyMenus.find(m => m.date === dateStr);
+        const isHoliday = !!holiday;
+        div.textContent = day;
+        if (isHoliday) {
+          div.classList.add("holiday");
+        } else if (dailyMenu) {
+          div.innerHTML = `${day}<br><small>${dailyMenu.food}</small>`;
+        }
+        calendar.appendChild(div);
+      }
+    }
+
+    // === 定食設定 ===
+    async function addDailyMenu() {
+      const date = document.getElementById("daily-menu-date").value;
+      const food = document.getElementById("daily-menu-food").value;
+      if (!date || !food) return alert("日付と定食メニューを選択してください。");
+
+      const dailyMenus = await apiGet('daily-menu.php');
+
+      // 同じ日付の設定がある場合は更新、なければ追加
+      const existingIndex = dailyMenus.findIndex(m => m.date === date);
+      if (existingIndex >= 0) {
+        dailyMenus[existingIndex].food = food;
+      } else {
+        dailyMenus.push({ date, food });
+      }
+
+      await apiPost('daily-menu.php', dailyMenus);
+
+      document.getElementById("daily-menu-date").value = "";
+      document.getElementById("daily-menu-food").value = "";
+      loadDailyMenus();
+      renderCalendar();
+    }
+
+    async function loadDailyMenus() {
+      const dailyMenus = await apiGet('daily-menu.php');
+      const list = document.getElementById("daily-menu-list");
+
+      if (!dailyMenus || dailyMenus.length === 0) {
+        list.innerHTML = "<p>定食設定はありません。</p>";
+        return;
+      }
+
+      // 日付順にソート
+      const sortedMenus = dailyMenus.sort((a, b) => a.date.localeCompare(b.date));
+
+      list.innerHTML = sortedMenus.map(m => {
+        const div = document.createElement("div");
+        div.className = "menu-item";
+        div.innerHTML = `
+          <p>📅 ${m.date}　🍽️ ${m.food}</p>
+          <button onclick="deleteDailyMenu('${m.date}')" class="btn btn-danger">削除</button>
+        `;
+        return div.outerHTML;
+      }).join('');
+    }
+
+    async function deleteDailyMenu(date) {
+      if (!confirm('この定食設定を削除しますか？')) return;
+
+      const dailyMenus = await apiGet('daily-menu.php');
+      const filtered = dailyMenus.filter(m => m.date !== date);
+      await apiPost('daily-menu.php', filtered);
+      loadDailyMenus();
+      renderCalendar();
+    }
+
+    // === 予約一覧 ===
+    async function loadReservations() {
+      const reservations = await apiGet('reservations.php');
+      const list = document.getElementById("reservations-list");
+
+      if (!reservations || reservations.length === 0) {
+        list.innerHTML = "<p>予約はありません。</p>";
+        return;
+      }
+
+      // メニュー別にグループ化
+      const grouped = {};
+      reservations.forEach(r => {
+        if (!grouped[r.food]) grouped[r.food] = [];
+        grouped[r.food].push(r);
+      });
+
+      // 各グループ内で名前順にソート
+      Object.keys(grouped).forEach(food => {
+        grouped[food].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      });
+
+      // メニュー名順にソートして表示
+      const sortedFoods = Object.keys(grouped).sort();
+      list.innerHTML = sortedFoods.map(food => {
+        const reservationsForFood = grouped[food];
+        const verifiedCount = reservationsForFood.filter(r => r.verified === true || r.verified === 'true').length;
+        const totalCount = reservationsForFood.length;
+        
+        // 各予約者をチェックボックス付きで表示
+        const peopleList = reservationsForFood.map(r => {
+          // verifiedフラグをチェック（true、'true'、1など様々な形式に対応）
+          const isVerified = r.verified === true || r.verified === 'true' || r.verified === 1;
+          const checkboxId = `verified-${r.id || r.name}-${r.reservationNumber || ''}`;
+          return `
+            <div style="display: flex; align-items: center; margin-bottom: 5px; padding: 5px; background-color: ${isVerified ? '#d4edda' : '#fff'}; border-radius: 4px; border: 1px solid ${isVerified ? '#c3e6cb' : '#ddd'};">
+              <input type="checkbox" 
+                     id="${checkboxId}" 
+                     ${isVerified ? 'checked' : ''} 
+                     disabled
+                     style="margin-right: 10px; transform: scale(1.5); cursor: not-allowed; accent-color: #28a745;">
+              <label for="${checkboxId}" style="margin: 0; cursor: default; flex: 1; color: ${isVerified ? '#155724' : '#333'};">
+                ${r.name} ${r.reservationNumber ? `(番号: ${r.reservationNumber})` : ''}
+                ${isVerified ? ' ✅' : ''}
+              </label>
+            </div>
+          `;
+        }).join('');
+        
+        return `
+          <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 18px; color: #333;">🍽️ ${food}</h3>
+            <div style="margin-bottom: 8px;">
+              ${peopleList}
+            </div>
+            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #e74c3c;">
+              👥 ${totalCount}人 
+              ${verifiedCount > 0 ? `<span style="color: #28a745;">✅ 認証済み: ${verifiedCount}人</span>` : ''}
+            </p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // === 予約リセット ===
+    async function resetReservations() {
+      if (!confirm('本当にリセットしますか？\n全ての予約データが削除されます。')) {
+        return;
+      }
+
+      await apiPost('reservations.php', []);
+      loadReservations();
+      alert("全ての予約をリセットしました。");
+    }
+
+    // === レビュー一覧 ===
+    async function loadReviews() {
+      try {
+        const reviews = await apiGet('reviews.php');
+        const list = document.getElementById("reviews-list");
+
+        if (!reviews || reviews.length === 0) {
+          list.innerHTML = "<p>レビューはありません。</p>";
+          return;
+        }
+
+        list.innerHTML = reviews.map(review => {
+          const name = review.name && review.name.trim() ? review.name : '匿名';
+          const date = review.date || '日付不明';
+          const comment = review.comment || '';
+          
+          return `
+            <div style="margin-bottom: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background-color: #f8f9fa;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                  <strong style="font-size: 16px; color: #333;">${escapeHtml(name)}</strong>
+                  <span style="font-size: 14px; color: #666; margin-left: 10px;">${escapeHtml(date)}</span>
+                </div>
+                <button onclick="deleteReview(${review.id})" class="btn btn-danger" style="padding: 6px 12px; font-size: 14px;">削除</button>
+              </div>
+              <div style="color: #555; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(comment)}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('レビュー読み込みエラー:', error);
+        document.getElementById("reviews-list").innerHTML = 
+          '<p style="color: red;">レビューの読み込みに失敗しました。</p>';
+      }
+    }
+
+    // HTMLエスケープ関数
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // レビューを削除
+    async function deleteReview(reviewId) {
+      if (!confirm('このレビューを削除しますか？')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('api/reviews.php', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ id: reviewId })
+        });
+
+        if (!response.ok) {
+          throw new Error('レビューの削除に失敗しました');
+        }
+
+        alert('レビューを削除しました。');
+        loadReviews();
+      } catch (error) {
+        console.error('レビュー削除エラー:', error);
+        alert('レビューの削除に失敗しました。');
+      }
+    }
+
+    // === 残数リセット ===
+    async function resetMenuStocks() {
+      if (!confirm('本当にリセットしますか？\n全メニューの残数を初期値に戻します。')) {
+        return;
+      }
+
+      let menus = await apiGet('menu.php');
+
+      if (menus.length === 0) {
+        alert("メニューがありません。");
+        return;
+      }
+
+      // 🔹 initialStock が存在しない古いデータのための補完
+      menus = menus.map(m => {
+        // もし initialStock が無ければ、現在の stock を初期値として保存
+        if (typeof m.initialStock !== "number" || m.initialStock <= 0) {
+          m.initialStock = m.stock;
+        }
+        // リセット処理：残数を初期値に戻す（無制限の場合は-1のまま）
+        m.stock = m.initialStock;
+        return m;
+      });
+
+      await apiPost('menu.php', menus);
+
+      // メニューを再読み込み
+      loadMenus();
+
+      alert("全メニューの残数を初期値にリセットしました。");
+    }
+
+
+    // === 予約時間管理 ===
+    async function loadReservationTimes() {
+      try {
+        const times = await apiGet('reservation-times.php');
+        const displayDiv = document.getElementById('reservation-times-display');
+
+        if (times) {
+          displayDiv.innerHTML = `
+            <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+              <p><strong>⏰ 予約可能時間:</strong> ${times.startTime} - ${times.endTime}</p>
+              <p><strong>📝 状態:</strong> ${times.enabled ? '✅ 有効' : '❌ 無効'}</p>
+              <p><strong>💬 メッセージ:</strong> ${times.message}</p>
+            </div>
+          `;
+
+          // フォームに現在の値を設定
+          document.getElementById('reservation-start-time').value = times.startTime;
+          document.getElementById('reservation-end-time').value = times.endTime;
+          document.getElementById('reservation-message').value = times.message;
+        }
+      } catch (error) {
+        console.error('予約時間設定の読み込みエラー:', error);
+        document.getElementById('reservation-times-display').innerHTML =
+          '<p style="color: red;">予約時間設定の読み込みに失敗しました。</p>';
+      }
+    }
+
+    async function updateReservationTimes() {
+      const startTime = document.getElementById('reservation-start-time').value;
+      const endTime = document.getElementById('reservation-end-time').value;
+      const message = document.getElementById('reservation-message').value.trim();
+
+      if (!startTime || !endTime) {
+        alert('開始時間と終了時間を入力してください。');
+        return;
+      }
+
+      if (startTime >= endTime) {
+        alert('開始時間は終了時間より早く設定してください。');
+        return;
+      }
+
+      try {
+        const data = {
+          startTime: startTime,
+          endTime: endTime,
+          enabled: true, // 設定されたら自動的に有効
+          message: message || `予約時間: ${startTime}-${endTime}`
+        };
+
+        await apiPost('reservation-times.php', data);
+        alert('予約時間設定を更新しました！\n予約時間制限が自動的に有効になりました。');
+        loadReservationTimes();
+      } catch (error) {
+        console.error('予約時間設定の更新エラー:', error);
+        alert('予約時間設定の更新に失敗しました。');
+      }
+    }
+
+    // === 日次リセット管理 ===
+    async function performDailyReset() {
+      if (!confirm('日次リセットを実行しますか？\nメニューの残数と予約データがリセットされます。')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('api/daily-reset.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          alert('日次リセットが完了しました！');
+          checkResetStatus();
+          loadMenus();
+          loadReservations();
+        } else {
+          alert('リセットに失敗しました: ' + result.message);
+        }
+      } catch (error) {
+        console.error('リセットエラー:', error);
+        alert('リセット処理中にエラーが発生しました。');
+      }
+    }
+
+    async function checkResetStatus() {
+      try {
+        const response = await fetch('api/daily-reset.php');
+        const status = await response.json();
+
+        const statusDiv = document.getElementById('reset-status');
+        statusDiv.innerHTML = `
+          <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+            <p><strong>📅 今日の日付:</strong> ${status.today}</p>
+            <p><strong>🔄 リセット状況:</strong> ${status.needsReset ? '❌ 未実行' : '✅ 実行済み'}</p>
+            <p><strong>⏰ 最終リセット日:</strong> ${status.lastReset || 'なし'}</p>
+            <p><strong>🕐 最終リセット時刻:</strong> ${status.lastResetTime || 'なし'}</p>
+          </div>
+        `;
+      } catch (error) {
+        console.error('ステータス確認エラー:', error);
+        document.getElementById('reset-status').innerHTML =
+          '<p style="color: red;">ステータス確認に失敗しました。</p>';
+      }
+    }
+
+    // === 月間レポート ===
+    async function generateReport() {
+      const year = document.getElementById('report-year').value;
+      const month = document.getElementById('report-month').value;
+
+      try {
+        const response = await fetch(`api/monthly-report.php?year=${year}&month=${month}`);
+        const report = await response.json();
+
+        displayReport(report);
+      } catch (error) {
+        console.error('レポート生成エラー:', error);
+        alert('レポート生成に失敗しました。');
+      }
+    }
+
+    function displayReport(report) {
+      const reportDiv = document.getElementById('report-display');
+
+      // メニュー別売上のトップ5
+      const topMenuItems = Object.entries(report.topMenu || {})
+        .map(([menu, quantity]) => `<li>${menu}: ${quantity}個</li>`)
+        .join('');
+
+      // 日別売上データ
+      const dailyData = report.dailySales || [];
+      const dailyTable = dailyData.length > 0 ? `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+          <tr style="background-color: #f8f9fa;">
+            <th style="border: 1px solid #ddd; padding: 8px;">日付</th>
+            <th style="border: 1px solid #ddd; padding: 8px;">予約数</th>
+            <th style="border: 1px solid #ddd; padding: 8px;">来客数</th>
+          </tr>
+          ${dailyData.map(day => `
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 8px;">${day.date}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${day.reservations}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${day.people}</td>
+            </tr>
+          `).join('')}
+        </table>
+      ` : '<p>データがありません。</p>';
+
+      reportDiv.innerHTML = `
+        <div style="padding: 20px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; margin-top: 15px;">
+          <h3 style="color: #333; margin-top: 0;">📊 ${report.year}年${report.month}月 月間レポート</h3>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <h4 style="margin: 0 0 5px 0; color: #666;">総営業日数</h4>
+              <p style="font-size: 24px; font-weight: bold; color: #007bff; margin: 0;">${report.totalDays}日</p>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <h4 style="margin: 0 0 5px 0; color: #666;">総予約数</h4>
+              <p style="font-size: 24px; font-weight: bold; color: #28a745; margin: 0;">${report.totalReservations}件</p>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <h4 style="margin: 0 0 5px 0; color: #666;">総来客数</h4>
+              <p style="font-size: 24px; font-weight: bold; color: #dc3545; margin: 0;">${report.totalPeople}人</p>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+              <h4 style="margin: 0 0 5px 0; color: #666;">1日平均来客数</h4>
+              <p style="font-size: 24px; font-weight: bold; color: #ffc107; margin: 0;">${report.averageDailyPeople}人</p>
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <h4>🏆 人気メニュー TOP5</h4>
+            <ul>${topMenuItems}</ul>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <h4>📅 日別売上データ</h4>
+            ${dailyTable}
+          </div>
+          
+          <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+            <h4 style="margin-top: 0;">📈 分析結果</h4>
+            <p><strong>最も忙しかった日:</strong> ${report.busiestDay || 'データなし'}</p>
+            <p><strong>最も忙しかった時間帯:</strong> ${report.busiestTimeSlot || 'データなし'}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    async function downloadReport() {
+      const year = document.getElementById('report-year').value;
+      const month = document.getElementById('report-month').value;
+
+      try {
+        const response = await fetch(`api/monthly-report.php?year=${year}&month=${month}&format=csv`);
+        const csvData = await response.text();
+
+        // CSVファイルをダウンロード
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `monthly_report_${year}_${month.toString().padStart(2, '0')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        alert('レポートをダウンロードしました！');
+      } catch (error) {
+        console.error('ダウンロードエラー:', error);
+        alert('ダウンロードに失敗しました。');
+      }
+    }
+
+    // === タブ切り替え ===
+    function switchTab(tabName, buttonElement) {
+      // すべてのタブコンテンツを非表示
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // すべてのタブボタンからactiveクラスを削除
+      document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('active');
+      });
+      
+      // 選択されたタブを表示
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      
+      // クリックされたボタンにactiveクラスを追加
+      if (buttonElement) {
+        buttonElement.classList.add('active');
+      }
+    }
+
+    // === アコーディオン切り替え ===
+    function toggleAccordion(header) {
+      const content = header.nextElementSibling;
+      const isActive = content.classList.contains('active');
+      
+      // すべてのアコーディオンを閉じる（オプション：他のアコーディオンを開いたままにする場合は削除）
+      // document.querySelectorAll('.accordion-content').forEach(acc => {
+      //   acc.classList.remove('active');
+      //   acc.previousElementSibling.classList.remove('active');
+      // });
+      
+      if (isActive) {
+        content.classList.remove('active');
+        header.classList.remove('active');
+      } else {
+        content.classList.add('active');
+        header.classList.add('active');
+      }
+    }
+
+    // === 起動時 ===
+    function renderLinks() {
+      const base = window.location.href.replace(/[^/]*$/, '');
+      const pages = [
+        { name: '生徒用サイト (index.html)', file: 'index.html' },
+        { name: '管理者サイト (admin.html)', file: 'admin.html' },
+        { name: '予約サイト (reservation.php)', file: 'reservation.php' },
+        { name: '予約確認システム (verification.html)', file: 'verification.html' },
+        { name: 'レビュー投稿 (review.html)', file: 'review.html' },
+        { name: '食堂専用AIアシスタント (ai-assistant-php.html)', file: 'ai-assistant-php.html' }
+      ];
+      const linksDiv = document.getElementById('page-links');
+      if (!linksDiv) return;
+      linksDiv.innerHTML = pages.map(p => {
+        const url = base + p.file;
+        return `<p><strong>${p.name}:</strong> <a href="${url}">${url}</a></p>`;
+      }).join('');
+    }
+
+    window.onload = function () {
+      loadMenus();
+      loadHolidays();
+      loadDailyMenus();
+      loadReservations();
+      loadReviews();
+      loadReservationTimes();
+      renderCalendar();
+      renderLinks();
+      checkResetStatus();
+
+      // 現在の月を選択
+      const currentMonth = new Date().getMonth() + 1;
+      document.getElementById('report-month').value = currentMonth;
+
+      // 予約一覧を30秒ごとに自動更新
+      setInterval(() => {
+        loadReservations();
+      }, 30000); // 30秒
+      
+      // レビュー一覧を60秒ごとに自動更新
+      setInterval(() => {
+        loadReviews();
+      }, 60000); // 60秒
+    };
+  </script>
+</body>
+
+</html>

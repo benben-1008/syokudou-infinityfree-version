@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>食堂予約システム</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .page-bg {
+      background-image: url('images/olive.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
+
+    .container {
+      background-color: rgba(255, 255, 255, 0.92);
+    }
+  </style>
+</head>
+
+<body class="page-bg">
+  <div class="container">
+    <header>
+      <h1>🍽️ 食堂予約システム</h1>
+      <p>お名前とご希望のメニューを選択してください</p>
+    </header>
+
+    <main>
+      <section class="reservation-section">
+        <div class="reservation-card">
+          <h2>📝 予約フォーム</h2>
+
+          <!-- 予約時間表示 -->
+          <div id="reservation-time-info"
+            style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+            <h3 style="margin: 0 0 10px 0; color: #495057;">⏰ 予約可能時間</h3>
+            <div id="time-display">読み込み中...</div>
+          </div>
+
+          <form id="reservation-form">
+            <div class="form-group">
+              <label for="student-name">お名前 *</label>
+              <input type="text" id="student-name" required placeholder="例: 田中太郎">
+            </div>
+
+            <div class="form-group">
+              <label for="food">ご希望のメニュー *</label>
+              <select id="food" required></select>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">予約を確定</button>
+              <button type="button" onclick="resetForm()" class="btn btn-secondary">リセット</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="reservation-status-section">
+        <div class="reservation-card">
+          <h2>📊 現在の予約状況</h2>
+          <div style="margin-bottom: 10px;">
+            <button onclick="refreshData()" class="btn btn-secondary">🔄 データを更新</button>
+          </div>
+          <div id="reservations-display">読み込み中...</div>
+        </div>
+      </section>
+
+      <section class="menu-table-section">
+        <div class="reservation-card">
+          <h2>📋 現在のメニュー一覧</h2>
+          <div id="menu-display">読み込み中...</div>
+        </div>
+      </section>
+    </main>
+
+    <section class="info-section">
+      <h2>🔗 URLリンク</h2>
+      <div id="page-links" class="info-card"></div>
+
+      <div
+        style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+        <h3 style="color: #856404; margin-top: 0;">⚠️ 注意事項</h3>
+        <p style="color: #856404; margin-bottom: 10px;">
+          このサイトを正常に使用するには、ローカルサーバー経由でアクセスする必要があります。
+        </p>
+        <p style="color: #856404; margin-bottom: 10px;">
+          <strong>推奨方法:</strong><br>
+          1. コマンドプロンプトで <code>php -S localhost:8000</code> を実行<br>
+          2. ブラウザで <code>http://localhost:8000/reservation.html</code> にアクセス
+        </p>
+        <p style="color: #856404; margin: 0;">
+          <strong>テスト用:</strong> <a href="test-reservation.html" style="color: #856404;">API動作テストページ</a>
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <a href="index.html" class="back-link">← メインページに戻る</a>
+    </footer>
+  </div>
+
+  <script src="reservation-script.js"></script>
+</body>
+
+</html>
