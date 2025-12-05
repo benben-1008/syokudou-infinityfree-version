@@ -743,6 +743,19 @@ function answerFromCafeteriaData($userMessage) {
     foreach ($holidays as $h) {
         if (($h['date'] ?? '') === $today) { $todayHoliday = $h; break; }
     }
+    
+    // 今日が土日かチェック
+    $todayObj = new DateTime($today);
+    $dayOfWeek = (int)$todayObj->format('w'); // 0=日曜日, 6=土曜日
+    $isWeekend = ($dayOfWeek == 0 || $dayOfWeek == 6);
+    
+    // 土日の場合、休業日として扱う
+    if ($isWeekend && !$todayHoliday) {
+        $todayHoliday = [
+            'date' => $today,
+            'reason' => ($dayOfWeek == 0 ? '日曜日' : '土曜日')
+        ];
+    }
 
     // 定食
     $dailyMenus = readJsonSafe($dataDir . '/daily-menu.json');

@@ -44,7 +44,7 @@ function generateMonthlyReport($year, $month) {
     // 指定された月の日数を計算
     $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
     
-    // 指定された月の休業日を抽出
+    // 指定された月の休業日を抽出（登録されている休業日 + 土日）
     $monthHolidays = [];
     foreach ($allHolidays as $holiday) {
         $holidayDate = $holiday['date'] ?? '';
@@ -56,7 +56,19 @@ function generateMonthlyReport($year, $month) {
         }
     }
     
-    // 営業日数 = 月の日数 - 休業日数
+    // 土日を休業日として追加
+    for ($day = 1; $day <= $daysInMonth; $day++) {
+        $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
+        $timestamp = mktime(0, 0, 0, $month, $day, $year);
+        $dayOfWeek = date('w', $timestamp); // 0=日曜日, 6=土曜日
+        
+        // 土日を休業日に追加（既に登録されていない場合のみ）
+        if (($dayOfWeek == 0 || $dayOfWeek == 6) && !in_array($dateStr, $monthHolidays)) {
+            $monthHolidays[] = $dateStr;
+        }
+    }
+    
+    // 営業日数 = 月の日数 - 休業日数（登録されている休業日 + 土日）
     $totalDays = $daysInMonth - count($monthHolidays);
     
     // 指定された月の予約を抽出
