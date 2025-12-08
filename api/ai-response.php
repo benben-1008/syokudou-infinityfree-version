@@ -1,11 +1,25 @@
 <?php
+// エラー出力を抑制（JSON出力を汚染しないように）
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// 出力バッファリングを開始（予期しない出力を防ぐ）
+ob_start();
+
 // HTTPヘッダーの設定（セキュリティとパフォーマンス）
+// JSON APIエンドポイントとして正しいContent-Typeを設定
 header('Content-Type: application/json; charset=utf-8');
+// CORS設定（CORBエラーを防ぐため）
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Max-Age: 86400');
+// セキュリティヘッダー（X-Content-Type-Optionsは必須）
 header('X-Content-Type-Options: nosniff');
-header('Cache-Control: no-cache, max-age=0');
+// Cache-Control: APIエンドポイントなのでキャッシュしない
+header('Cache-Control: no-store');
+// Pragmaヘッダーは削除（非推奨のため）
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -37,10 +51,40 @@ if ($userMessage === '' || mb_strlen($userMessage) > 3000) {
     exit;
 }
 
+// デバッグログを初期化（最初に実行）
+if (!isset($GLOBALS['debug_logs'])) {
+    $GLOBALS['debug_logs'] = [];
+}
+
 // Ollamaが利用可能かチェック
 $ollamaAvailable = checkOllamaAvailability();
 
 $response = generateAIResponse($userMessage, $useOllama, $ollamaAvailable, $history);
+
+// 使用されたAPIを取得
+$usedApi = $GLOBALS['used_ai_api'] ?? null;
+
+// デバッグログを収集（開発者ツールで確認できるように）
+$debugLogs = $GLOBALS['debug_logs'] ?? [];
+
+// generateAIResponseから返された配列からAPI情報を取得
+if (is_array($response) && isset($response['api'])) {
+    $usedApi = $response['api'];
+    $response = $response['response'];
+} elseif ($usedApi === null && $ollamaAvailable && $useOllama) {
+    // 設定を確認して、どのAPIが使用されるべきか判断（優先順位なし）
+    $config = getAIConfig();
+    // 有効なAPIを順番に確認（優先順位なし）
+    if (($config['openai']['enabled'] ?? false) && !empty($config['openai']['api_key'])) {
+        $usedApi = 'openai';
+    } elseif (($config['gemini']['enabled'] ?? false) && !empty($config['gemini']['api_key'])) {
+        $usedApi = 'gemini';
+    } elseif (($config['groq']['enabled'] ?? false) && !empty($config['groq']['api_key'])) {
+        $usedApi = 'groq';
+    } elseif (($config['huggingface']['enabled'] ?? true)) {
+        $usedApi = 'huggingface';
+    }
+}
 
 // デバッグ情報（本番環境でも有効）
 $debugInfo = [
@@ -49,16 +93,89 @@ $debugInfo = [
     'isProduction' => isProductionEnvironment(),
     'messageLength' => mb_strlen($userMessage),
     'historyCount' => count($history),
-    'responseLength' => mb_strlen($response)
+    'responseLength' => mb_strlen($response),
+    'usedApi' => $usedApi,
+    'geminiEnabled' => getAIConfig()['gemini']['enabled'] ?? false,
+    'geminiApiKeySet' => !empty(getAIConfig()['gemini']['api_key'] ?? ''),
+    'openaiEnabled' => getAIConfig()['openai']['enabled'] ?? false,
+    'openaiApiKeySet' => !empty(getAIConfig()['openai']['api_key'] ?? ''),
+    'debugLogs' => $debugLogs, // 開発者ツールで確認できるログ
 ];
 
-echo json_encode([
-    'response' => $response,
+// 出力バッファをクリア（予期しない出力を削除）
+ob_clean();
+
+// レスポンスデータを安全に処理（JSONエンコードできない文字を削除）
+$safeResponse = $response;
+if (is_string($response)) {
+    // 不正なUTF-8文字を削除
+    $safeResponse = mb_convert_encoding($response, 'UTF-8', 'UTF-8');
+    // NULLバイトを削除
+    $safeResponse = str_replace("\0", '', $safeResponse);
+    // 制御文字を削除（改行とタブは除く）
+    $safeResponse = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $safeResponse);
+}
+
+// デバッグ情報も安全に処理
+$safeDebugInfo = [];
+foreach ($debugInfo as $key => $value) {
+    if (is_string($value)) {
+        $safeDebugInfo[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+    } elseif (is_array($value)) {
+        // 配列の場合は再帰的に処理
+        $safeDebugInfo[$key] = array_map(function($item) {
+            if (is_string($item)) {
+                return mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+            }
+            return $item;
+        }, $value);
+    } else {
+        $safeDebugInfo[$key] = $value;
+    }
+}
+
+// JSONエンコード（エラーハンドリング付き）
+$jsonResponse = @json_encode([
+    'response' => $safeResponse,
     'ollamaUsed' => $ollamaAvailable && $useOllama,
     'ollamaAvailable' => $ollamaAvailable,
-    'apiType' => $ollamaAvailable && $useOllama ? 'Ollama' : 'Basic',
-    'debug' => $debugInfo
-], JSON_UNESCAPED_UNICODE);
+    'apiType' => $usedApi ?? ($ollamaAvailable && $useOllama ? 'CloudAI' : 'Basic'),
+    'usedApi' => $usedApi,
+    'debug' => $safeDebugInfo
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_IGNORE);
+
+// JSONエンコードエラーをチェック
+if ($jsonResponse === false) {
+    $jsonError = json_last_error_msg();
+    $jsonErrorCode = json_last_error();
+    
+    // エラー詳細をログに記録
+    addDebugLog("JSONエンコードエラー: $jsonError (コード: $jsonErrorCode)");
+    addDebugLog("レスポンス長: " . mb_strlen($response));
+    addDebugLog("レスポンス型: " . gettype($response));
+    
+    ob_clean();
+    
+    // 最小限の安全なレスポンスを返す
+    $errorResponse = [
+        'response' => '❌ JSONエンコードエラーが発生しました: ' . $jsonError,
+        'error' => $jsonError,
+        'errorCode' => $jsonErrorCode,
+        'debug' => [
+            'jsonError' => $jsonError,
+            'jsonErrorCode' => $jsonErrorCode,
+            'responseType' => gettype($response),
+            'responseLength' => mb_strlen($response),
+            'responsePreview' => mb_substr($safeResponse, 0, 200),
+            'debugLogs' => $debugLogs
+        ]
+    ];
+    
+    echo json_encode($errorResponse, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_IGNORE);
+    exit;
+}
+
+echo $jsonResponse;
 
 // Ollamaの可用性をチェック
 function checkOllamaAvailability() {
@@ -106,11 +223,48 @@ function checkOllamaAvailability() {
     return false;
 }
 
-// クラウドOllamaサービスの可用性をチェック
+// AI API設定を読み込む
+function getAIConfig() {
+    static $config = null;
+    if ($config === null) {
+        $configPath = __DIR__ . '/ollama-config.php';
+        if (file_exists($configPath)) {
+            $config = require $configPath;
+        } else {
+            $config = [
+                'api_priority' => ['huggingface'],
+                'groq' => ['enabled' => false, 'api_key' => '', 'model' => 'llama-3.1-8b-instant'],
+                'openai' => ['enabled' => false, 'api_key' => '', 'model' => 'gpt-3.5-turbo'],
+                'gemini' => ['enabled' => false, 'api_key' => '', 'model' => 'gemini-pro'],
+                'ollama' => ['enabled' => false, 'production_url' => '', 'production_model' => 'llama3'],
+                'huggingface' => ['enabled' => true],
+                'timeout' => 120,
+                'connect_timeout' => 15,
+                'local_url' => 'http://localhost:11434',
+            ];
+        }
+    }
+    return $config;
+}
+
+// クラウドAIサービスの可用性をチェック
 function checkCloudOllamaAvailability() {
-    // 本番環境では、Hugging Face APIなどの無料AI APIサービスが利用可能とみなす
-    // 実際の可用性は呼び出し時に確認される
-    // ここでは、本番環境であることを確認してtrueを返す
+    $config = getAIConfig();
+    
+    // 有効なAPIがあるかチェック（優先順位なし）
+    if (($config['openai']['enabled'] ?? false) && !empty($config['openai']['api_key'])) {
+        return true;
+    } elseif (($config['gemini']['enabled'] ?? false) && !empty($config['gemini']['api_key'])) {
+        return true;
+    } elseif (($config['groq']['enabled'] ?? false) && !empty($config['groq']['api_key'])) {
+        return true;
+    } elseif (($config['huggingface']['enabled'] ?? true)) {
+        return true;
+    } elseif (($config['ollama']['enabled'] ?? false) && !empty($config['ollama']['production_url'])) {
+        return true;
+    }
+    
+    // デフォルトでHugging Face APIを使用
     return true;
 }
 
@@ -157,7 +311,11 @@ EOD;
     
     if (isProductionEnvironment()) {
         // 本番環境ではクラウドOllamaサービスを使用
-        return callCloudOllamaAPI($userMessage, $systemPrompt, $history);
+        $result = callCloudOllamaAPI($userMessage, $systemPrompt, $history);
+        if (is_array($result) && isset($result['response'])) {
+            return $result;
+        }
+        return $result;
     } else {
         // ローカル環境ではlocalhostのOllamaを使用
         return callLocalOllamaAPI($userMessage, $systemPrompt, $history);
@@ -292,27 +450,456 @@ function callLocalOllamaAPI($userMessage, $systemPrompt, $history = []) {
     return false;
 }
 
-// クラウドOllama APIを呼び出し
+// クラウドAI APIを呼び出し（有効なAPIを順番に試行）
 function callCloudOllamaAPI($userMessage, $systemPrompt, $history = []) {
-    // 会話履歴を含めたプロンプトを構築
-    $fullPrompt = buildPromptWithHistory($userMessage, $systemPrompt, $history);
+    $config = getAIConfig();
+    $timeout = $config['timeout'] ?? 120;
+    $connectTimeout = $config['connect_timeout'] ?? 15;
     
-    // Hugging Face APIを試行（無料、APIキー不要）
-    $hfResponse = callHuggingFaceAPIWithPrompt($fullPrompt);
-    if ($hfResponse !== false && trim($hfResponse) !== '') {
-        error_log("Hugging Face API success: " . substr($hfResponse, 0, 100));
-        return $hfResponse;
+    // メッセージ配列を構築
+    $messages = [];
+    $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+    foreach (array_slice($history, -6) as $msg) {
+        if (isset($msg['role']) && isset($msg['content'])) {
+            $messages[] = ['role' => $msg['role'], 'content' => $msg['content']];
+        }
+    }
+    $messages[] = ['role' => 'user', 'content' => $userMessage];
+    
+    // 有効なAPIを順番に試行（優先順位なし）
+    $usedApi = null;
+    $apisToTry = ['openai', 'gemini', 'groq', 'huggingface', 'ollama'];
+    foreach ($apisToTry as $apiName) {
+        error_log("=== 試行中: $apiName API ===");
+        
+        if ($apiName === 'groq' && ($config['groq']['enabled'] ?? false) && !empty($config['groq']['api_key'])) {
+            error_log("Groq API: 有効化されており、APIキーが設定されています");
+            $response = callGroqAPI($userMessage, $messages, $config['groq'], $timeout, $connectTimeout);
+            if ($response !== false) {
+                $usedApi = 'groq';
+                error_log("=== 成功: Groq API が使用されました ===");
+                return ['response' => $response, 'api' => $usedApi];
+            }
+            error_log("Groq API: 失敗");
+        } else {
+            if ($apiName === 'groq') {
+                error_log("Groq API: スキップ - enabled=" . ($config['groq']['enabled'] ?? 'false') . ", api_key=" . (!empty($config['groq']['api_key']) ? '設定済み' : '未設定'));
+            }
+        }
+        
+        if ($apiName === 'openai' && ($config['openai']['enabled'] ?? false) && !empty($config['openai']['api_key'])) {
+            error_log("OpenAI API: 有効化されており、APIキーが設定されています");
+            $response = callOpenAIAPI($userMessage, $messages, $config['openai'], $timeout, $connectTimeout);
+            if ($response !== false) {
+                $usedApi = 'openai';
+                error_log("=== 成功: OpenAI API が使用されました ===");
+                return ['response' => $response, 'api' => $usedApi];
+            }
+            error_log("OpenAI API: 失敗");
+        } else {
+            if ($apiName === 'openai') {
+                error_log("OpenAI API: スキップ - enabled=" . ($config['openai']['enabled'] ?? 'false') . ", api_key=" . (!empty($config['openai']['api_key']) ? '設定済み' : '未設定'));
+            }
+        }
+        
+        if ($apiName === 'gemini' && ($config['gemini']['enabled'] ?? false) && !empty($config['gemini']['api_key'])) {
+            error_log("Gemini API: 有効化されており、APIキーが設定されています");
+            error_log("Gemini API設定: enabled=" . ($config['gemini']['enabled'] ? 'true' : 'false') . ", model=" . ($config['gemini']['model'] ?? 'N/A'));
+            $response = callGeminiAPI($userMessage, $systemPrompt, $history, $config['gemini'], $timeout, $connectTimeout);
+            if ($response !== false) {
+                $usedApi = 'gemini';
+                error_log("=== 成功: Gemini API が使用されました ===");
+                return ['response' => $response, 'api' => $usedApi];
+            }
+            error_log("Gemini API: 失敗");
+        } else {
+            if ($apiName === 'gemini') {
+                error_log("Gemini API: スキップ - enabled=" . ($config['gemini']['enabled'] ?? 'false') . ", api_key=" . (!empty($config['gemini']['api_key']) ? '設定済み' : '未設定'));
+            }
+        }
+        
+        if ($apiName === 'ollama' && ($config['ollama']['enabled'] ?? false) && !empty($config['ollama']['production_url'])) {
+            error_log("Ollama API: 有効化されており、URLが設定されています");
+            $response = callCloudOllamaInstanceAPI($userMessage, $messages, $config['ollama'], $timeout, $connectTimeout);
+            if ($response !== false) {
+                $usedApi = 'ollama';
+                error_log("=== 成功: Ollama API が使用されました ===");
+                return ['response' => $response, 'api' => $usedApi];
+            }
+            error_log("Ollama API: 失敗");
+        } else {
+            if ($apiName === 'ollama') {
+                error_log("Ollama API: スキップ - enabled=" . ($config['ollama']['enabled'] ?? 'false') . ", production_url=" . (!empty($config['ollama']['production_url']) ? '設定済み' : '未設定'));
+            }
+        }
+        
+        if ($apiName === 'huggingface' && ($config['huggingface']['enabled'] ?? true)) {
+            error_log("Hugging Face API: 試行中");
+            $fullPrompt = buildPromptWithHistory($userMessage, $systemPrompt, $history);
+            $response = callHuggingFaceAPIWithPrompt($fullPrompt);
+            if ($response !== false && trim($response) !== '') {
+                $usedApi = 'huggingface';
+                error_log("=== 成功: Hugging Face API が使用されました ===");
+                return ['response' => $response, 'api' => $usedApi];
+            }
+            error_log("Hugging Face API: 失敗");
+        } else {
+            if ($apiName === 'huggingface') {
+                error_log("Hugging Face API: スキップ - enabled=" . ($config['huggingface']['enabled'] ?? 'true'));
+            }
+        }
     }
     
-    // 簡易プロンプトで再試行
-    $simplePrompt = $systemPrompt . "\n\n質問: " . $userMessage . "\n回答:";
-    $simpleResponse = callHuggingFaceAPIWithPrompt($simplePrompt);
-    if ($simpleResponse !== false && trim($simpleResponse) !== '') {
-        error_log("Hugging Face API success (simple): " . substr($simpleResponse, 0, 100));
-        return $simpleResponse;
+    error_log("=== すべてのAI API試行が失敗しました ===");
+    return false;
+}
+
+// Groq APIを呼び出し
+function callGroqAPI($userMessage, $messages, $apiConfig, $timeout, $connectTimeout) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $apiConfig['base_url'] . '/chat/completions');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'model' => $apiConfig['model'],
+        'messages' => $messages,
+        'temperature' => 0.8,
+        'max_tokens' => 1000,
+    ], JSON_UNESCAPED_UNICODE));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $apiConfig['api_key']
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        error_log("Groq API error: " . $error);
+        return false;
     }
     
-    error_log("All Hugging Face API attempts failed");
+    if ($httpCode === 200) {
+        $data = json_decode($response, true);
+        if (isset($data['choices'][0]['message']['content'])) {
+            error_log("Groq API success");
+            return trim($data['choices'][0]['message']['content']);
+        }
+    }
+    
+    error_log("Groq API failed: HTTP $httpCode");
+    return false;
+}
+
+// デバッグログを追加する関数
+function addDebugLog($message) {
+    if (!isset($GLOBALS['debug_logs'])) {
+        $GLOBALS['debug_logs'] = [];
+    }
+    $timestamp = date('H:i:s');
+    $GLOBALS['debug_logs'][] = "[$timestamp] $message";
+    // ログが多すぎないように制限（最新50件）
+    if (count($GLOBALS['debug_logs']) > 50) {
+        $GLOBALS['debug_logs'] = array_slice($GLOBALS['debug_logs'], -50);
+    }
+}
+
+// OpenAI APIを呼び出し
+function callOpenAIAPI($userMessage, $messages, $apiConfig, $timeout, $connectTimeout) {
+    addDebugLog("=== OpenAI API 呼び出し開始 ===");
+    addDebugLog("モデル: " . ($apiConfig['model'] ?? 'N/A'));
+    addDebugLog("Base URL: " . ($apiConfig['base_url'] ?? 'N/A'));
+    addDebugLog("APIキー: " . (empty($apiConfig['api_key']) ? '未設定' : substr($apiConfig['api_key'], 0, 10) . '...'));
+    
+    error_log("=== OpenAI API 呼び出し開始 ===");
+    error_log("モデル: " . ($apiConfig['model'] ?? 'N/A'));
+    error_log("Base URL: " . ($apiConfig['base_url'] ?? 'N/A'));
+    error_log("APIキー: " . (empty($apiConfig['api_key']) ? '未設定' : substr($apiConfig['api_key'], 0, 10) . '...'));
+    
+    $ch = curl_init();
+    $url = $apiConfig['base_url'] . '/chat/completions';
+    addDebugLog("リクエストURL: " . $url);
+    error_log("リクエストURL: " . $url);
+    
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    $requestBody = [
+        'model' => $apiConfig['model'],
+        'messages' => $messages,
+        'temperature' => 0.8,
+        'max_tokens' => 1000,
+    ];
+    $requestBodyJson = json_encode($requestBody, JSON_UNESCAPED_UNICODE);
+    addDebugLog("リクエストボディ: " . substr($requestBodyJson, 0, 200) . "...");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBodyJson);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $apiConfig['api_key']
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+    addDebugLog("OpenAI API リクエスト送信中...");
+    error_log("OpenAI API リクエスト送信中...");
+    $startTime = microtime(true);
+    $response = curl_exec($ch);
+    $endTime = microtime(true);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    $responseTime = round(($endTime - $startTime) * 1000, 2);
+    addDebugLog("レスポンス時間: {$responseTime}ms");
+    addDebugLog("HTTPステータスコード: $httpCode");
+    error_log("レスポンス時間: {$responseTime}ms");
+    error_log("HTTPステータスコード: $httpCode");
+    
+    if ($error) {
+        addDebugLog("=== OpenAI API エラー ===");
+        addDebugLog("CURLエラー: " . $error);
+        error_log("=== OpenAI API エラー ===");
+        error_log("CURLエラー: " . $error);
+        return false;
+    }
+    
+    // レスポンスの詳細をログに記録
+    $responsePreview = substr($response, 0, 500);
+    addDebugLog("レスポンス（最初の500文字）: " . $responsePreview);
+    error_log("OpenAI API レスポンス（最初の500文字）: " . $responsePreview);
+    
+    if ($httpCode === 200) {
+        $data = json_decode($response, true);
+        
+        // JSONデコードのエラーをチェック
+        if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
+            $jsonError = json_last_error_msg();
+            addDebugLog("=== OpenAI API JSON解析エラー ===");
+            addDebugLog("JSONエラー: " . $jsonError);
+            addDebugLog("レスポンス本文: " . substr($response, 0, 1000));
+            error_log("=== OpenAI API JSON解析エラー ===");
+            error_log("JSONエラー: " . $jsonError);
+            error_log("レスポンス本文: " . substr($response, 0, 1000));
+            return false;
+        }
+        
+        // レスポンス構造を詳細にログ（簡略版をデバッグログに）
+        $responseStructure = json_encode($data, JSON_UNESCAPED_UNICODE);
+        addDebugLog("レスポンス構造（簡略）: " . substr($responseStructure, 0, 500) . "...");
+        error_log("OpenAI API レスポンス構造: " . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        
+        if (isset($data['choices'][0]['message']['content'])) {
+            $responseText = trim($data['choices'][0]['message']['content']);
+            if (empty($responseText)) {
+                addDebugLog("=== OpenAI API 警告: レスポンスが空です ===");
+                addDebugLog("レスポンス構造: " . substr($responseStructure, 0, 300));
+                error_log("=== OpenAI API 警告: レスポンスが空です ===");
+                error_log("レスポンス構造: " . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                return false;
+            }
+            addDebugLog("=== OpenAI API 成功 ===");
+            addDebugLog("レスポンス長: " . mb_strlen($responseText) . " 文字");
+            addDebugLog("レスポンス（最初の100文字）: " . mb_substr($responseText, 0, 100));
+            error_log("=== OpenAI API 成功 ===");
+            error_log("レスポンス長: " . mb_strlen($responseText) . " 文字");
+            error_log("レスポンス（最初の100文字）: " . mb_substr($responseText, 0, 100));
+            return $responseText;
+        } else {
+            addDebugLog("=== OpenAI API レスポンス解析エラー ===");
+            addDebugLog("期待される構造: data['choices'][0]['message']['content']");
+            addDebugLog("実際の構造: " . substr($responseStructure, 0, 500));
+            error_log("=== OpenAI API レスポンス解析エラー ===");
+            error_log("期待される構造: data['choices'][0]['message']['content']");
+            error_log("実際の構造: " . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            
+            // 代替のレスポンス構造をチェック
+            if (isset($data['choices'][0]['text'])) {
+                addDebugLog("代替構造を発見: data['choices'][0]['text']");
+                $responseText = trim($data['choices'][0]['text']);
+                return $responseText;
+            }
+            
+            // エラー情報がある場合
+            if (isset($data['error'])) {
+                $errorInfo = json_encode($data['error'], JSON_UNESCAPED_UNICODE);
+                addDebugLog("エラー情報: " . $errorInfo);
+                error_log("エラー情報: " . $errorInfo);
+            }
+        }
+    } else {
+        addDebugLog("=== OpenAI API HTTP エラー ===");
+        addDebugLog("HTTPステータス: $httpCode");
+        error_log("=== OpenAI API HTTP エラー ===");
+        error_log("HTTPステータス: $httpCode");
+        $errorData = json_decode($response, true);
+        if ($errorData) {
+            $errorResponse = json_encode($errorData, JSON_UNESCAPED_UNICODE);
+            addDebugLog("エラーレスポンス: " . substr($errorResponse, 0, 500));
+            error_log("エラーレスポンス: " . json_encode($errorData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            if (isset($errorData['error']['message'])) {
+                $errorMessage = $errorData['error']['message'];
+                addDebugLog("エラーメッセージ: " . $errorMessage);
+                error_log("エラーメッセージ: " . $errorMessage);
+                
+                // クォータ超過エラーの場合、特別な処理
+                if (isset($errorData['error']['type']) && $errorData['error']['type'] === 'insufficient_quota') {
+                    addDebugLog("⚠️ OpenAI API クォータ超過: 他のAPIにフォールバックします");
+                    error_log("⚠️ OpenAI API クォータ超過エラー: 他のAPIにフォールバックします");
+                }
+            }
+            if (isset($errorData['error']['type'])) {
+                addDebugLog("エラータイプ: " . $errorData['error']['type']);
+                error_log("エラータイプ: " . $errorData['error']['type']);
+            }
+        } else {
+            addDebugLog("レスポンス本文: " . substr($response, 0, 500));
+            error_log("レスポンス本文: " . substr($response, 0, 1000));
+        }
+    }
+    
+    return false;
+}
+
+// Gemini APIを呼び出し
+function callGeminiAPI($userMessage, $systemPrompt, $history, $apiConfig, $timeout, $connectTimeout) {
+    error_log("=== Gemini API 呼び出し開始 ===");
+    error_log("モデル: " . ($apiConfig['model'] ?? 'N/A'));
+    error_log("Base URL: " . ($apiConfig['base_url'] ?? 'N/A'));
+    error_log("APIキー: " . (empty($apiConfig['api_key']) ? '未設定' : substr($apiConfig['api_key'], 0, 10) . '...'));
+    
+    // Gemini APIは会話履歴を含めたプロンプトを構築
+    $prompt = $systemPrompt . "\n\n";
+    foreach (array_slice($history, -6) as $msg) {
+        $role = $msg['role'] ?? 'user';
+        $content = $msg['content'] ?? '';
+        $prompt .= ($role === 'user' ? "ユーザー: " : "アシスタント: ") . $content . "\n";
+    }
+    $prompt .= "ユーザー: " . $userMessage . "\nアシスタント:";
+    
+    error_log("プロンプト長: " . mb_strlen($prompt) . " 文字");
+    
+    $ch = curl_init();
+    // Gemini APIのURL形式を修正（v1betaではなくv1を使用、または正しいエンドポイントを使用）
+    // モデル名が正しいか確認: gemini-1.5-flash または gemini-pro
+    $model = $apiConfig['model'] ?? 'gemini-pro';
+    // v1betaエンドポイントを使用（404エラーの場合はv1を試す）
+    $baseUrl = $apiConfig['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta';
+    $url = $baseUrl . '/models/' . $model . ':generateContent?key=' . $apiConfig['api_key'];
+    error_log("リクエストURL: " . str_replace($apiConfig['api_key'], '***', $url));
+    
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    $requestBody = [
+        'contents' => [['parts' => [['text' => $prompt]]]]
+    ];
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody, JSON_UNESCAPED_UNICODE));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+    error_log("Gemini API リクエスト送信中...");
+    $startTime = microtime(true);
+    $response = curl_exec($ch);
+    $endTime = microtime(true);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    error_log("レスポンス時間: " . round(($endTime - $startTime) * 1000, 2) . "ms");
+    error_log("HTTPステータスコード: $httpCode");
+    
+    if ($error) {
+        error_log("=== Gemini API エラー ===");
+        error_log("CURLエラー: " . $error);
+        return false;
+    }
+    
+    if ($httpCode === 200) {
+        $data = json_decode($response, true);
+        if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+            $responseText = trim($data['candidates'][0]['content']['parts'][0]['text']);
+            error_log("=== Gemini API 成功 ===");
+            error_log("レスポンス長: " . mb_strlen($responseText) . " 文字");
+            error_log("レスポンス（最初の100文字）: " . mb_substr($responseText, 0, 100));
+            return $responseText;
+        } else {
+            error_log("=== Gemini API レスポンス解析エラー ===");
+            error_log("レスポンス構造: " . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            if (isset($data['error'])) {
+                error_log("エラー詳細: " . json_encode($data['error'], JSON_UNESCAPED_UNICODE));
+            }
+        }
+    } else {
+        error_log("=== Gemini API HTTP エラー ===");
+        error_log("HTTPステータス: $httpCode");
+        $errorData = json_decode($response, true);
+        if ($errorData) {
+            error_log("エラーレスポンス: " . json_encode($errorData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        } else {
+            error_log("レスポンス本文: " . substr($response, 0, 500));
+        }
+    }
+    
+    return false;
+}
+
+// クラウドOllamaインスタンスAPIを呼び出し
+function callCloudOllamaInstanceAPI($userMessage, $messages, $apiConfig, $timeout, $connectTimeout) {
+    $requestBody = [
+        'model' => $apiConfig['production_model'] ?? 'llama3',
+        'messages' => $messages,
+        'stream' => false,
+        'options' => ['temperature' => 0.8, 'top_p' => 0.9, 'repeat_penalty' => 1.1]
+    ];
+    
+    $ch = curl_init();
+    $url = rtrim($apiConfig['production_url'], '/') . '/api/chat';
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody, JSON_UNESCAPED_UNICODE));
+    
+    $headers = ['Content-Type: application/json'];
+    if (!empty($apiConfig['api_key'])) {
+        $headers[] = 'Authorization: Bearer ' . $apiConfig['api_key'];
+    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        error_log("Cloud Ollama API error: " . $error);
+        return false;
+    }
+    
+    if ($httpCode === 200) {
+        $data = json_decode($response, true);
+        if (isset($data['message']['content'])) {
+            error_log("Cloud Ollama API success");
+            return trim($data['message']['content']);
+        }
+        if (isset($data['response'])) {
+            error_log("Cloud Ollama API success");
+            return trim($data['response']);
+        }
+    }
+    
+    error_log("Cloud Ollama API failed: HTTP $httpCode");
     return false;
 }
 
@@ -407,7 +994,7 @@ function callHuggingFaceAPIWithPrompt($fullPrompt) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
             'inputs' => $fullPrompt,
             'parameters' => [
-                'max_length' => 300,  // より長い応答を許可
+                'max_length' => 200,  // より長い応答を許可
                 'temperature' => 0.7,  // より自然な応答
                 'do_sample' => true,
                 'top_p' => 0.9,
@@ -483,9 +1070,20 @@ function generateAIResponse($userMessage, $useOllama = true, $ollamaAvailable = 
     // Ollamaを最優先で使用（useOllamaがtrueの場合）
     if ($useOllama && $ollamaAvailable) {
         $ollamaResponse = callOllamaAPI($userMessage, $history);
-        if ($ollamaResponse !== false && trim($ollamaResponse) !== '' && mb_strlen($ollamaResponse) > 10) {
+        
+        // 配列形式のレスポンス（API名を含む）を処理
+        if (is_array($ollamaResponse) && isset($ollamaResponse['response'])) {
+            $responseText = $ollamaResponse['response'];
+            $usedApi = $ollamaResponse['api'] ?? 'unknown';
+            if (trim($responseText) !== '' && mb_strlen($responseText) > 10) {
+                // グローバル変数に使用されたAPIを保存（デバッグ用）
+                $GLOBALS['used_ai_api'] = $usedApi;
+                return $responseText;
+            }
+        } elseif ($ollamaResponse !== false && trim($ollamaResponse) !== '' && mb_strlen($ollamaResponse) > 10) {
             return $ollamaResponse;
         }
+        
         // エラーログに記録
         error_log("Ollama API call failed for message: " . substr($userMessage, 0, 100));
         
@@ -498,159 +1096,159 @@ function generateAIResponse($userMessage, $useOllama = true, $ollamaAvailable = 
         }
     }
     
-    // フォールバック応答を生成（Ollamaが利用できない、または失敗した場合）
-    // より自然な会話を生成するため、常にフォールバックを使用
-    $fallbackResponse = generateIntelligentFallback($userMessage, $history);
-    if ($fallbackResponse !== null) {
-        return $fallbackResponse;
-    }
+    // デフォルト応答を削除：AIが失敗した場合は明確なエラーメッセージを返す
+    // これにより、AIが実際に動作しているかどうかを確認できる
     
-    // 完全にOllamaが利用できない場合のメッセージ
     if (!$ollamaAvailable || !$useOllama) {
-        $unavailableMessages = [
-            "申し訳ございませんが、現在AI応答システムが利用できません。\n\n食堂に関する具体的なご質問（メニュー、営業時間、予約など）でしたら、管理者サイトで設定された情報をお答えできます。\n\nAI応答機能をご利用になるには、Ollamaをインストールして「AI APIを使用する」にチェックを入れてください。",
-            "現在、AI応答システムが利用できません。\n\n食堂に関するご質問（メニュー、営業時間、予約など）でしたら、管理者サイトで設定された情報をお答えできます。\n\nAI応答機能を使うには、Ollamaをインストールして「AI APIを使用する」にチェックを入れてください。"
-        ];
-        return $unavailableMessages[array_rand($unavailableMessages)];
+        return "❌ **AI APIが利用できません**\n\n" .
+               "設定状況:\n" .
+               "- AI API使用: " . ($useOllama ? "✅ 有効" : "❌ 無効") . "\n" .
+               "- AI API利用可能: " . ($ollamaAvailable ? "✅ はい" : "❌ いいえ") . "\n\n" .
+               "**デバッグ情報**: AI APIが正しく設定されていないか、接続に失敗しています。\n" .
+               "設定ファイル（ollama-config.php）を確認してください。";
     }
     
-    // 最後のフォールバック
-    $finalMessages = [
-        "申し訳ございませんが、適切な応答を生成できませんでした。\n\n考えられる原因：\n- 外部AI APIサービスへの接続が失敗している可能性があります\n- タイムアウトが発生した可能性があります\n\nもう一度お試しいただくか、具体的なご質問をお聞かせください。",
-        "申し訳ございませんが、応答を生成できませんでした。\n\n外部AI APIサービスへの接続が失敗している可能性があります。もう一度お試しいただくか、具体的なご質問をお聞かせください。"
-    ];
-    return $finalMessages[array_rand($finalMessages)];
+    // AI API呼び出しが失敗した場合 - 詳細なエラー情報を収集
+    $config = getAIConfig();
+    $apisToCheck = ['openai', 'gemini', 'groq', 'huggingface', 'ollama'];
+    $enabledApis = [];
+    $testResults = [];
+    $apiErrors = []; // 各APIのエラー情報を収集
+    
+    // デバッグログからOpenAIのクォータ超過エラーを確認
+    $openaiQuotaError = false;
+    if (!empty($debugLogs)) {
+        foreach ($debugLogs as $log) {
+            if (strpos($log, 'insufficient_quota') !== false || strpos($log, 'クォータ超過') !== false) {
+                $openaiQuotaError = true;
+                break;
+            }
+        }
+    }
+    
+    // 各APIの接続テストを実行
+    foreach ($apisToCheck as $apiName) {
+        $isEnabled = false;
+        $hasApiKey = false;
+        $testResult = "未テスト";
+        
+        if ($apiName === 'gemini') {
+            $isEnabled = $config['gemini']['enabled'] ?? false;
+            $hasApiKey = !empty($config['gemini']['api_key'] ?? '');
+            if ($isEnabled && $hasApiKey) {
+                // 簡単な接続テスト
+                $testCh = curl_init();
+                curl_setopt($testCh, CURLOPT_URL, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . $config['gemini']['api_key']);
+                curl_setopt($testCh, CURLOPT_POST, true);
+                curl_setopt($testCh, CURLOPT_POSTFIELDS, json_encode(['contents' => [['parts' => [['text' => 'test']]]]]));
+                curl_setopt($testCh, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($testCh, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($testCh, CURLOPT_TIMEOUT, 5);
+                curl_setopt($testCh, CURLOPT_CONNECTTIMEOUT, 5);
+                curl_setopt($testCh, CURLOPT_SSL_VERIFYPEER, false);
+                $testResponse = @curl_exec($testCh);
+                $testHttpCode = curl_getinfo($testCh, CURLINFO_HTTP_CODE);
+                $testError = curl_error($testCh);
+                curl_close($testCh);
+                
+                if ($testError) {
+                    $testResult = "❌ 接続エラー: " . substr($testError, 0, 50);
+                } elseif ($testHttpCode === 0) {
+                    $testResult = "❌ 接続タイムアウト（InfinityFreeの制限の可能性）";
+                } elseif ($testHttpCode >= 200 && $testHttpCode < 300) {
+                    $testResult = "✅ 接続成功";
+                } else {
+                    $testResult = "⚠️ HTTP $testHttpCode";
+                }
+            }
+            $enabledApis[] = "Gemini (有効: " . ($isEnabled ? "はい" : "いいえ") . ", APIキー: " . ($hasApiKey ? "設定済み" : "未設定") . ", テスト: $testResult)";
+        } elseif ($apiName === 'openai') {
+            $isEnabled = $config['openai']['enabled'] ?? false;
+            $hasApiKey = !empty($config['openai']['api_key'] ?? '');
+            if ($isEnabled && $hasApiKey) {
+                // OpenAI接続テスト
+                $testCh = curl_init();
+                curl_setopt($testCh, CURLOPT_URL, 'https://api.openai.com/v1/models');
+                curl_setopt($testCh, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $config['openai']['api_key']]);
+                curl_setopt($testCh, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($testCh, CURLOPT_TIMEOUT, 5);
+                curl_setopt($testCh, CURLOPT_CONNECTTIMEOUT, 5);
+                curl_setopt($testCh, CURLOPT_SSL_VERIFYPEER, false);
+                $testResponse = @curl_exec($testCh);
+                $testHttpCode = curl_getinfo($testCh, CURLINFO_HTTP_CODE);
+                $testError = curl_error($testCh);
+                curl_close($testCh);
+                
+                if ($testError) {
+                    $testResult = "❌ 接続エラー: " . substr($testError, 0, 50);
+                } elseif ($testHttpCode === 0) {
+                    $testResult = "❌ 接続タイムアウト（InfinityFreeの制限の可能性）";
+                } elseif ($testHttpCode >= 200 && $testHttpCode < 300) {
+                    $testResult = "✅ 接続成功";
+                } else {
+                    $testResult = "⚠️ HTTP $testHttpCode";
+                }
+            }
+            $enabledApis[] = "OpenAI (有効: " . ($isEnabled ? "はい" : "いいえ") . ", APIキー: " . ($hasApiKey ? "設定済み" : "未設定") . ", テスト: $testResult)";
+        } elseif ($apiName === 'groq' && ($config['groq']['enabled'] ?? false) && !empty($config['groq']['api_key'])) {
+            $enabledApis[] = "Groq (有効)";
+        } elseif ($apiName === 'huggingface' && ($config['huggingface']['enabled'] ?? true)) {
+            $enabledApis[] = "Hugging Face (有効)";
+        }
+    }
+    
+    $apisList = !empty($enabledApis) ? implode("\n- ", $enabledApis) : "なし";
+    
+    // cURLが利用可能かチェック
+    $curlAvailable = function_exists('curl_init') ? "✅ 利用可能" : "❌ 利用不可";
+    
+    // OpenAIクォータ超過エラーの場合、特別なメッセージを表示
+    if ($openaiQuotaError) {
+        return "❌ **OpenAI APIのクォータが超過しました**\n\n" .
+               "**エラー詳細**:\n" .
+               "- OpenAI APIの無料クレジットが使い切られました\n" .
+               "- または、APIキーにクレジットが残っていません\n\n" .
+               "**試行されたAPI**:\n- " . $apisList . "\n\n" .
+               "**解決策**:\n" .
+               "1. OpenAI Platform（https://platform.openai.com/）でクレジットを追加する\n" .
+               "2. 新しいAPIキーを取得する\n" .
+               "3. 他のAPI（Gemini、Hugging Face）が自動的に試行されます\n\n" .
+               "**現在の状況**:\n" .
+               "- OpenAI API: ❌ クォータ超過のため使用不可\n" .
+               "- 他のAPI（Gemini、Hugging Face）が自動的に試行されます\n" .
+               "- デバッグログで詳細を確認してください";
+    }
+    
+    return "❌ **AI API呼び出しが失敗しました**\n\n" .
+           "**システム情報**:\n" .
+           "- cURL機能: $curlAvailable\n" .
+           "- ホスト: " . ($_SERVER['HTTP_HOST'] ?? '不明') . "\n" .
+           "- 本番環境: " . (isProductionEnvironment() ? "はい" : "いいえ") . "\n\n" .
+           "**試行されたAPI**:\n- " . $apisList . "\n\n" .
+           "**考えられる原因**:\n" .
+           "1. ⚠️ **InfinityFreeのセキュリティ設定により外部APIへの接続がブロックされている可能性が高いです**\n" .
+           "   - InfinityFreeの無料プランでは外部APIへの接続が制限されている場合があります\n" .
+           "   - cURLによる外部接続が許可されていない可能性があります\n\n" .
+           "2. APIキーが無効または期限切れ\n" .
+           "3. ネットワーク接続の問題\n" .
+           "4. APIサービスの一時的な障害\n\n" .
+           "**解決策**:\n" .
+           "1. InfinityFreeの有料プランにアップグレードする（外部API接続が許可される可能性）\n" .
+           "2. 別のホスティングサービス（例: 000webhost、Freehostia）を試す\n" .
+           "3. サーバーのエラーログを確認する（InfinityFreeのコントロールパネルから）\n" .
+           "4. ブラウザの開発者ツール（F12）のコンソールで詳細なエラーを確認する\n\n" .
+           "**デバッグ情報**:\n" .
+           "- 上記の「テスト」結果を確認してください\n" .
+           "- 「接続タイムアウト」や「接続エラー」が表示されている場合、InfinityFreeの制限が原因の可能性が高いです";
 }
 
-// インテリジェントなフォールバック応答を生成（より自然な会話）
+// インテリジェントなフォールバック応答を生成（削除済み）
+// デフォルト応答を削除したため、この関数は使用されません
+// AIが実際に動作しているかどうかを確認するため、デフォルト応答は返しません
 function generateIntelligentFallback($userMessage, $history = []) {
-    $message = mb_strtolower($userMessage);
-    
-    // 会話履歴を分析
-    $conversationContext = analyzeConversationContext($history, $userMessage);
-    
-    // 挨拶への応答（会話履歴を考慮、バリエーションを持たせる）
-    if (mb_strpos($message, 'こんにちは') !== false || mb_strpos($message, 'こんばんは') !== false || 
-        mb_strpos($message, 'おはよう') !== false || mb_strpos($message, 'hello') !== false || 
-        mb_strpos($message, 'hi') !== false) {
-        if (empty($history)) {
-            $greetings = [
-                "こんにちは！食堂のAIアシスタントです。\n\n何かお手伝いできることがございましたら、お気軽にお声かけください。\n\nメニュー、営業時間、予約など、食堂に関するご質問でしたら何でもお答えします！",
-                "こんにちは！いらっしゃいませ。\n\n食堂について、メニューや営業時間、予約など、何でもお聞きください。お手伝いさせていただきます！",
-                "こんにちは！食堂のAIアシスタントです。\n\n今日はどのようなご用件でしょうか？メニューや営業時間、予約についてお答えできます。"
-            ];
-            return $greetings[array_rand($greetings)];
-        } else {
-            $returnGreetings = [
-                "こんにちは！またいらっしゃいましたね。\n\n何か他にお手伝いできることはありますか？",
-                "こんにちは！おかえりなさい。\n\n他にご質問がございましたら、お気軽にお聞かせください。",
-                "こんにちは！\n\n何か他にお手伝いできることはありますか？"
-            ];
-            return $returnGreetings[array_rand($returnGreetings)];
-        }
-    }
-    
-    // お礼への応答（会話履歴を考慮、バリエーションを持たせる）
-    if (mb_strpos($message, 'ありがとう') !== false || mb_strpos($message, 'thank') !== false) {
-        $thanks = [
-            "どういたしまして！\n\n他にもご質問がございましたら、いつでもお声かけください。",
-            "いえいえ、お役に立てて嬉しいです！\n\n他に何かございましたら、お気軽にどうぞ。",
-            "どういたしまして。\n\n他にもご質問があれば、いつでもお聞かせください。"
-        ];
-        return $thanks[array_rand($thanks)];
-    }
-    
-    // メニューに関する質問（会話履歴を考慮、バリエーションを持たせる）
-    if (mb_strpos($message, 'メニュー') !== false || mb_strpos($message, '料理') !== false || 
-        mb_strpos($message, '食べ物') !== false || mb_strpos($message, '定食') !== false ||
-        mb_strpos($message, '何が') !== false || mb_strpos($message, '何を') !== false) {
-        $cafeteriaAnswer = answerFromCafeteriaData($userMessage);
-        if ($cafeteriaAnswer !== null) {
-            // データベースからの回答をより自然な形で返す
-            return $cafeteriaAnswer;
-        }
-        // 会話履歴から文脈を取得
-        if ($conversationContext['hasMenuContext']) {
-            $menuResponses = [
-                "メニューについてですね。本日のメニューは管理者サイトで設定されています。\n\n具体的にどのメニューについて知りたいですか？",
-                "メニューのことですね。今日のメニューについては、管理者サイトで設定された情報を確認できます。\n\nどのメニューについて詳しく知りたいですか？",
-                "メニューについてお答えします。本日のメニューは管理者サイトで設定されています。\n\nどのメニューについて知りたいですか？"
-            ];
-            return $menuResponses[array_rand($menuResponses)];
-        }
-        $menuIntroResponses = [
-            "メニューについてお答えします。\n\n本日のメニューについては、管理者サイトで設定された情報を確認できます。\n\nどのメニューについて詳しく知りたいですか？",
-            "メニューですね。今日のメニューは管理者サイトで設定されています。\n\n具体的にどのメニューについて知りたいですか？",
-            "メニューについてお答えできます。本日のメニューは管理者サイトで設定されています。\n\nどのメニューについて詳しく知りたいですか？"
-        ];
-        return $menuIntroResponses[array_rand($menuIntroResponses)];
-    }
-    
-    // 営業時間に関する質問
-    if (mb_strpos($message, '営業時間') !== false || mb_strpos($message, '何時') !== false || 
-        mb_strpos($message, '開いて') !== false || mb_strpos($message, '閉まって') !== false ||
-        mb_strpos($message, 'いつ') !== false) {
-        $now = new DateTime();
-        $timeString = $now->format('H:i');
-        $isOpen = ($now->format('H') >= 11 && $now->format('H') < 13);
-        
-        return "営業時間についてお答えします。\n\n⏰ **営業時間**\n\n**平日（月〜金）**\n・11:30 - 13:00\n\n**土日祝日**\n・休業\n\n現在の時刻は{$timeString}です。" . 
-               ($isOpen ? "現在営業中です！" : "現在は営業時間外です。") . "\n\n他にご質問はありますか？";
-    }
-    
-    // 予約に関する質問
-    if (mb_strpos($message, '予約') !== false) {
-        $cafeteriaAnswer = answerFromCafeteriaData($userMessage);
-        if ($cafeteriaAnswer !== null) {
-            return $cafeteriaAnswer;
-        }
-        return "予約についてお答えします。\n\n📝 **予約システム**\n\n予約はメインページの「予約サイト」から行えます。\n\n予約可能時間や混雑状況については、管理者サイトで設定された情報を確認できます。\n\n予約について他にご質問はありますか？";
-    }
-    
-    // 会話履歴がある場合、より文脈を考慮した応答
-    if (!empty($history)) {
-        // 直前の会話を確認
-        $lastAssistantMessage = '';
-        $lastUserMessage = '';
-        foreach (array_reverse($history) as $msg) {
-            if (isset($msg['role'])) {
-                if ($msg['role'] === 'assistant' && $lastAssistantMessage === '') {
-                    $lastAssistantMessage = $msg['content'] ?? '';
-                }
-                if ($msg['role'] === 'user' && $lastUserMessage === '') {
-                    $lastUserMessage = $msg['content'] ?? '';
-                }
-            }
-        }
-        
-        // 前の会話に関連する応答
-        if ($lastUserMessage !== '' && $lastAssistantMessage !== '') {
-            // 質問の種類を判定
-            $lastMessageLower = mb_strtolower($lastUserMessage);
-            if (mb_strpos($lastMessageLower, 'メニュー') !== false) {
-                return "メニューについて、他にもご質問はありますか？\n\n例えば、料金やアレルギー対応についてもお答えできます。";
-            } else if (mb_strpos($lastMessageLower, '営業') !== false || mb_strpos($lastMessageLower, '時間') !== false) {
-                return "営業時間について、他にもご質問はありますか？\n\n予約やメニューについてもお答えできます。";
-            } else if (mb_strpos($lastMessageLower, '予約') !== false) {
-                return "予約について、他にもご質問はありますか？\n\nメニューや営業時間についてもお答えできます。";
-            }
-        }
-    }
-    
-    // 質問形式の判定
-    if (mb_strpos($message, '？') !== false || mb_strpos($message, '?') !== false ||
-        mb_strpos($message, '何') !== false || mb_strpos($message, 'どう') !== false ||
-        mb_strpos($message, 'なぜ') !== false || mb_strpos($message, 'どうして') !== false) {
-        return "ご質問ありがとうございます。\n\n食堂について以下の内容でしたらお答えできます：\n\n🍽️ メニューについて\n⏰ 営業時間について\n📝 予約について\n⚠️ アレルギー対応について\n💰 料金について\n📍 場所について\n\n具体的にどのことについて知りたいですか？";
-    }
-    
-    // デフォルトの応答（より自然に、バリエーションを持たせる）
-    $defaultResponses = [
-        "ご質問ありがとうございます。\n\n食堂についてお答えできます。メニュー、営業時間、予約など、どのことについて知りたいですか？\n\nお気軽にお聞かせください！",
-        "ご質問をありがとうございます。\n\n食堂について、メニューや営業時間、予約など、何でもお答えできます。どのことについて知りたいですか？",
-        "ご質問ありがとうございます。\n\n食堂についてお答えできます。メニュー、営業時間、予約などについて、どのことについて知りたいですか？\n\nお気軽にどうぞ。"
-    ];
-    return $defaultResponses[array_rand($defaultResponses)];
+    // この関数は呼び出されません（generateAIResponseで呼び出しを削除済み）
+    // 念のため、エラーを返すようにしています
+    return null;
 }
 
 // 会話の文脈を分析

@@ -86,6 +86,29 @@ switch ($_SERVER['REQUEST_METHOD']) {
       echo json_encode([ 'error' => 'Invalid JSON array' ], JSON_UNESCAPED_UNICODE);
       break;
     }
+    
+    // 同じ日に同じ名前の予約がないかチェック
+    $nameDateMap = [];
+    foreach ($data as $reservation) {
+      if (!isset($reservation['name']) || !isset($reservation['date'])) {
+        continue;
+      }
+      $name = trim($reservation['name']);
+      $date = $reservation['date'];
+      $key = $date . '|' . $name;
+      
+      if (isset($nameDateMap[$key])) {
+        http_response_code(400);
+        echo json_encode([ 
+          'error' => '同じ日に同じ名前の予約はできません',
+          'message' => $date . 'に「' . $name . '」さんは既に予約済みです。'
+        ], JSON_UNESCAPED_UNICODE);
+        break 2; // switch文を抜ける
+      }
+      
+      $nameDateMap[$key] = true;
+    }
+    
     write_json($file, $data);
     echo json_encode([ 'ok' => true ], JSON_UNESCAPED_UNICODE);
     break;
