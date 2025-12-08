@@ -1,7 +1,7 @@
 [
     {
         "name": "日替わり定食（550円）",
-        "stock": 9,
+        "stock": 10,
         "initialStock": 10
     },
     {
@@ -51,7 +51,7 @@
     },
     {
         "name": "カレーうどん（400円）",
-        "stock": 10,
+        "stock": 9,
         "initialStock": 10
     },
     {
