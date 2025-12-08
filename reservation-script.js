@@ -196,21 +196,6 @@ async function submitReservation(formData) {
         }
     }
     
-    // ユーザーIDを取得（ログインしている場合）
-    let userId = null;
-    try {
-        const authResponse = await fetch('api/auth.php', {
-            method: 'GET',
-            credentials: 'include'
-        });
-        const authData = await authResponse.json();
-        if (authData.loggedIn && authData.user) {
-            userId = authData.user.id;
-        }
-    } catch (error) {
-        console.error('ユーザー情報の取得に失敗:', error);
-    }
-    
     // 予約データを作成
     const reservation = {
         id: Date.now(),
@@ -219,12 +204,25 @@ async function submitReservation(formData) {
         name: formData.name,
         people: 1, // 固定で1人
         food: formData.food,
-        reservationNumber: Math.floor(Math.random() * 999) + 1, // 1-999のランダム番号
-        userId: userId // ログインしている場合のみ設定
+        reservationNumber: Math.floor(Math.random() * 999) + 1 // 1-999のランダム番号
     };
     
     // 既存の予約を取得
     const existingReservations = await fetch('api/reservations.php').then(r => r.json());
+    
+    // 同じ日に同じ名前の予約がないかチェック
+    const today = reservation.date;
+    const reservationName = reservation.name.trim();
+    const duplicateReservation = existingReservations.find(r => {
+        const rDate = r.date || '';
+        const rName = (r.name || '').trim();
+        return rDate === today && rName === reservationName;
+    });
+    
+    if (duplicateReservation) {
+        throw new Error(`${today}に「${reservationName}」さんは既に予約済みです。同じ日に複数の予約はできません。`);
+    }
+    
     existingReservations.push(reservation);
     
     // 予約を保存
@@ -235,7 +233,10 @@ async function submitReservation(formData) {
     });
     
     if (!saveResponse.ok) {
-        throw new Error('予約の保存に失敗しました');
+        // サーバー側からのエラーメッセージを取得
+        const errorData = await saveResponse.json().catch(() => ({}));
+        const errorMessage = errorData.message || errorData.error || '予約の保存に失敗しました';
+        throw new Error(errorMessage);
     }
     
     console.log('予約が送信されました:', reservation);

@@ -167,276 +167,276 @@
 
       <!-- 基本設定タブ -->
       <div id="tab-basic" class="tab-content active">
-      <!-- 🔹 メニュー管理 -->
-      <section class="admin-section">
-        <div class="accordion-header active" onclick="toggleAccordion(this)">
-          <h3>🍱 メニュー管理</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content active">
-          <div class="accordion-body">
-            <div class="grid-2">
-              <div class="admin-card">
-                <h3>メニューを追加</h3>
-          <div class="form-group">
-            <label for="menu-name">メニュー名:</label>
-            <input type="text" id="menu-name" placeholder="例: カレー" required>
+        <!-- 🔹 メニュー管理 -->
+        <section class="admin-section">
+          <div class="accordion-header active" onclick="toggleAccordion(this)">
+            <h3>🍱 メニュー管理</h3>
+            <span class="accordion-icon">▼</span>
           </div>
-          <div class="form-group">
-            <label for="menu-stock">提供可能数:</label>
-            <input type="number" id="menu-stock" placeholder="例: 30">
-          </div>
-          <div class="form-group">
-            <label
-              style="display: flex; align-items: center; font-weight: bold; color: #e74c3c; font-size: 16px; padding: 12px; background-color: #fff5f5; border: 2px solid #e74c3c; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
-              <input type="checkbox" id="unlimited-stock" onchange="toggleStockInput()"
-                style="margin-right: 12px; transform: scale(2.0); cursor: pointer;">
-              ♾️ 無制限で提供（在庫管理なし）
-            </label>
-          </div>
-                <button onclick="addMenu()" class="btn btn-primary">メニューを追加</button>
-              </div>
-
-              <div class="admin-card">
-                <h3>現在のメニュー一覧</h3>
-                <div style="margin-bottom:10px;">
-                  <button onclick="resetMenuStocks()" class="btn btn-secondary">残数をリセット</button>
+          <div class="accordion-content active">
+            <div class="accordion-body">
+              <div class="grid-2">
+                <div class="admin-card">
+                  <h3>メニューを追加</h3>
+                  <div class="form-group">
+                    <label for="menu-name">メニュー名:</label>
+                    <input type="text" id="menu-name" placeholder="例: カレー" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="menu-stock">提供可能数:</label>
+                    <input type="number" id="menu-stock" placeholder="例: 30">
+                  </div>
+                  <div class="form-group">
+                    <label
+                      style="display: flex; align-items: center; font-weight: bold; color: #e74c3c; font-size: 16px; padding: 12px; background-color: #fff5f5; border: 2px solid #e74c3c; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;">
+                      <input type="checkbox" id="unlimited-stock" onchange="toggleStockInput()"
+                        style="margin-right: 12px; transform: scale(2.0); cursor: pointer;">
+                      ♾️ 無制限で提供（在庫管理なし）
+                    </label>
+                  </div>
+                  <button onclick="addMenu()" class="btn btn-primary">メニューを追加</button>
                 </div>
-                <div id="menu-list"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <!-- 🔹 休業日設定 -->
-      <section class="admin-section">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <h3>📅 休業日設定</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div class="accordion-body">
-            <div class="grid-2">
-              <div class="admin-card">
-                <h3>休業日を追加</h3>
-          <div class="form-group">
-            <label for="holiday-date">日付:</label>
-            <input type="date" id="holiday-date" required>
-          </div>
-          <div class="form-group">
-            <label for="holiday-reason">理由（任意）:</label>
-            <input type="text" id="holiday-reason" placeholder="例: 設備点検（空白でも可）">
-          </div>
-                <button onclick="addHoliday()" class="btn btn-primary">休業日を追加</button>
-                <button onclick="addWeekendHolidays()" class="btn btn-secondary">今月の土日を自動追加</button>
-              </div>
-
-              <div class="admin-card">
-                <h3>🗓 カレンダー表示</h3>
-                <div id="calendar" class="calendar"></div>
-              </div>
-            </div>
-            <div class="admin-card">
-              <h3>現在の休業日一覧</h3>
-              <div id="holidays-list" class="holidays-list"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 🔹 定食設定 -->
-      <section class="admin-section">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <h3>🍽️ 定食設定</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div class="accordion-body">
-            <div class="grid-2">
-              <div class="admin-card">
-                <h3>日別定食を設定</h3>
-          <div class="form-group">
-            <label for="daily-menu-date">日付:</label>
-            <input type="date" id="daily-menu-date" required>
-          </div>
-          <div class="form-group">
-            <label for="daily-menu-food">定食メニュー:</label>
-            <input type="text" id="daily-menu-food" placeholder="例: カレーライス、日替わり定食" required>
-          </div>
-                <button onclick="addDailyMenu()" class="btn btn-primary">定食を設定</button>
-              </div>
-
-              <div class="admin-card">
-                <h3>現在の定食設定一覧</h3>
-                <div id="daily-menu-list"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 🔹 予約時間設定 -->
-      <section class="admin-section">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <h3>⏰ 予約時間設定</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div class="accordion-body">
-            <div class="grid-2">
-              <div class="admin-card">
-                <h3>予約可能時間を設定</h3>
-                <div class="form-group">
-                  <label for="reservation-start-time">開始時間:</label>
-                  <input type="time" id="reservation-start-time" required>
+                <div class="admin-card">
+                  <h3>現在のメニュー一覧</h3>
+                  <div style="margin-bottom:10px;">
+                    <button onclick="resetMenuStocks()" class="btn btn-secondary">残数をリセット</button>
+                  </div>
+                  <div id="menu-list"></div>
                 </div>
-                <div class="form-group">
-                  <label for="reservation-end-time">終了時間:</label>
-                  <input type="time" id="reservation-end-time" required>
-                </div>
-                <div class="form-group">
-                  <label for="reservation-message">表示メッセージ:</label>
-                  <input type="text" id="reservation-message" placeholder="例: 予約時間: 11:30-12:45">
-                </div>
-                <p style="color: #666; font-size: 14px; margin-top: -10px; margin-bottom: 10px;">
-                  ※ 予約時間を設定すると、自動的に有効になります
-                </p>
-                <button onclick="updateReservationTimes()" class="btn btn-primary">予約時間を更新</button>
-              </div>
-
-              <div class="admin-card">
-                <h3>現在の予約時間設定</h3>
-                <div id="reservation-times-display"></div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <!-- 🔹 休業日設定 -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>📅 休業日設定</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="grid-2">
+                <div class="admin-card">
+                  <h3>休業日を追加</h3>
+                  <div class="form-group">
+                    <label for="holiday-date">日付:</label>
+                    <input type="date" id="holiday-date" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="holiday-reason">理由（任意）:</label>
+                    <input type="text" id="holiday-reason" placeholder="例: 設備点検（空白でも可）">
+                  </div>
+                  <button onclick="addHoliday()" class="btn btn-primary">休業日を追加</button>
+                  <button onclick="addWeekendHolidays()" class="btn btn-secondary">今月の土日を自動追加</button>
+                </div>
+
+                <div class="admin-card">
+                  <h3>🗓 カレンダー表示</h3>
+                  <div id="calendar" class="calendar"></div>
+                </div>
+              </div>
+              <div class="admin-card">
+                <h3>現在の休業日一覧</h3>
+                <div id="holidays-list" class="holidays-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🔹 定食設定 -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>🍽️ 定食設定</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="grid-2">
+                <div class="admin-card">
+                  <h3>日別定食を設定</h3>
+                  <div class="form-group">
+                    <label for="daily-menu-date">日付:</label>
+                    <input type="date" id="daily-menu-date" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="daily-menu-food">定食メニュー:</label>
+                    <input type="text" id="daily-menu-food" placeholder="例: カレーライス、日替わり定食" required>
+                  </div>
+                  <button onclick="addDailyMenu()" class="btn btn-primary">定食を設定</button>
+                </div>
+
+                <div class="admin-card">
+                  <h3>現在の定食設定一覧</h3>
+                  <div id="daily-menu-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🔹 予約時間設定 -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>⏰ 予約時間設定</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="grid-2">
+                <div class="admin-card">
+                  <h3>予約可能時間を設定</h3>
+                  <div class="form-group">
+                    <label for="reservation-start-time">開始時間:</label>
+                    <input type="time" id="reservation-start-time" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="reservation-end-time">終了時間:</label>
+                    <input type="time" id="reservation-end-time" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="reservation-message">表示メッセージ:</label>
+                    <input type="text" id="reservation-message" placeholder="例: 予約時間: 11:30-12:45">
+                  </div>
+                  <p style="color: #666; font-size: 14px; margin-top: -10px; margin-bottom: 10px;">
+                    ※ 予約時間を設定すると、自動的に有効になります
+                  </p>
+                  <button onclick="updateReservationTimes()" class="btn btn-primary">予約時間を更新</button>
+                </div>
+
+                <div class="admin-card">
+                  <h3>現在の予約時間設定</h3>
+                  <div id="reservation-times-display"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <!-- データ管理タブ -->
       <div id="tab-data" class="tab-content">
-      <!-- 🔹 予約一覧 -->
-      <section class="admin-section">
-        <div class="accordion-header active" onclick="toggleAccordion(this)">
-          <h3>📝 予約一覧</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content active">
-          <div class="accordion-body">
-            <div class="admin-card">
-              <h3>予約状況</h3>
-          <div style="margin-bottom:10px;">
-            <button onclick="loadReservations()" class="btn btn-primary">予約一覧を更新</button>
-            <button onclick="resetReservations()" class="btn btn-danger">予約をリセット</button>
+        <!-- 🔹 予約一覧 -->
+        <section class="admin-section">
+          <div class="accordion-header active" onclick="toggleAccordion(this)">
+            <h3>📝 予約一覧</h3>
+            <span class="accordion-icon">▼</span>
           </div>
-              <div id="reservations-list"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 🔹 レビュー一覧 -->
-      <section class="admin-section">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <h3>⭐ レビュー一覧</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div class="accordion-body">
-            <div class="admin-card">
-              <h3>投稿されたレビュー</h3>
-              <div style="margin-bottom:10px;">
-                <button onclick="loadReviews()" class="btn btn-primary">レビュー一覧を更新</button>
+          <div class="accordion-content active">
+            <div class="accordion-body">
+              <div class="admin-card">
+                <h3>予約状況</h3>
+                <div style="margin-bottom:10px;">
+                  <button onclick="loadReservations()" class="btn btn-primary">予約一覧を更新</button>
+                  <button onclick="resetReservations()" class="btn btn-danger">予約をリセット</button>
+                </div>
+                <div id="reservations-list"></div>
               </div>
-              <div id="reviews-list"></div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <!-- 🔹 レビュー一覧 -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>⭐ レビュー一覧</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="admin-card">
+                <h3>投稿されたレビュー</h3>
+                <div style="margin-bottom:10px;">
+                  <button onclick="loadReviews()" class="btn btn-primary">レビュー一覧を更新</button>
+                </div>
+                <div id="reviews-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <!-- システム管理タブ -->
       <div id="tab-system" class="tab-content">
-      <!-- 🔹 日次リセット管理 -->
-      <section class="admin-section">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <h3>🔄 日次リセット管理</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div class="accordion-body">
-            <div class="admin-card">
-              <h3>自動リセット設定</h3>
-          <div style="margin-bottom:10px;">
-            <button onclick="performDailyReset()" class="btn btn-primary">手動でリセット実行</button>
-            <button onclick="checkResetStatus()" class="btn btn-secondary">リセット状況確認</button>
+        <!-- 🔹 日次リセット管理 -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>🔄 日次リセット管理</h3>
+            <span class="accordion-icon">▼</span>
           </div>
-              <div id="reset-status"></div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="admin-card">
+                <h3>自動リセット設定</h3>
+                <div style="margin-bottom:10px;">
+                  <button onclick="performDailyReset()" class="btn btn-primary">手動でリセット実行</button>
+                  <button onclick="checkResetStatus()" class="btn btn-secondary">リセット状況確認</button>
+                </div>
+                <div id="reset-status"></div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- 🔹 月間レポート -->
-      <section class="admin-section">
-        <div class="accordion-header" onclick="toggleAccordion(this)">
-          <h3>📊 月間レポート</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content">
-          <div class="accordion-body">
-            <div class="admin-card">
-              <h3>レポート生成</h3>
-              <div class="form-group">
-                <label for="report-year">年:</label>
-                <select id="report-year">
-                  <option value="2024">2024年</option>
-                  <option value="2025" selected>2025年</option>
-                </select>
+        <!-- 🔹 月間レポート -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>📊 月間レポート</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="admin-card">
+                <h3>レポート生成</h3>
+                <div class="form-group">
+                  <label for="report-year">年:</label>
+                  <select id="report-year">
+                    <option value="2024">2024年</option>
+                    <option value="2025" selected>2025年</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="report-month">月:</label>
+                  <select id="report-month">
+                    <option value="1">1月</option>
+                    <option value="2">2月</option>
+                    <option value="3">3月</option>
+                    <option value="4">4月</option>
+                    <option value="5">5月</option>
+                    <option value="6">6月</option>
+                    <option value="7">7月</option>
+                    <option value="8">8月</option>
+                    <option value="9">9月</option>
+                    <option value="10">10月</option>
+                    <option value="11">11月</option>
+                    <option value="12">12月</option>
+                  </select>
+                </div>
+                <div style="margin-bottom:10px;">
+                  <button onclick="generateReport()" class="btn btn-primary">レポート生成</button>
+                  <button onclick="downloadReport()" class="btn btn-success">Excel形式でダウンロード</button>
+                </div>
+                <div id="report-display"></div>
               </div>
-              <div class="form-group">
-                <label for="report-month">月:</label>
-                <select id="report-month">
-                  <option value="1">1月</option>
-                  <option value="2">2月</option>
-                  <option value="3">3月</option>
-                  <option value="4">4月</option>
-                  <option value="5">5月</option>
-                  <option value="6">6月</option>
-                  <option value="7">7月</option>
-                  <option value="8">8月</option>
-                  <option value="9">9月</option>
-                  <option value="10">10月</option>
-                  <option value="11">11月</option>
-                  <option value="12">12月</option>
-                </select>
-              </div>
-              <div style="margin-bottom:10px;">
-                <button onclick="generateReport()" class="btn btn-primary">レポート生成</button>
-                <button onclick="downloadReport()" class="btn btn-success">Excel形式でダウンロード</button>
-              </div>
-              <div id="report-display"></div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
       </div>
 
       <!-- その他タブ -->
       <div id="tab-other" class="tab-content">
-      <section class="admin-section">
-        <div class="accordion-header active" onclick="toggleAccordion(this)">
-          <h3>🔗 URLリンク</h3>
-          <span class="accordion-icon">▼</span>
-        </div>
-        <div class="accordion-content active">
-          <div class="accordion-body">
-            <div id="page-links" class="admin-card"></div>
+        <section class="admin-section">
+          <div class="accordion-header active" onclick="toggleAccordion(this)">
+            <h3>🔗 URLリンク</h3>
+            <span class="accordion-icon">▼</span>
           </div>
-        </div>
-      </section>
+          <div class="accordion-content active">
+            <div class="accordion-body">
+              <div id="page-links" class="admin-card"></div>
+            </div>
+          </div>
+        </section>
       </div>
 
     </main>
@@ -581,7 +581,7 @@
       if (!date) return alert("日付を入力してください。");
 
       const holidays = await apiGet('holidays.php');
-      
+
       // 既に同じ日付の休業日があるかチェック
       const existingIndex = holidays.findIndex(h => h.date === date);
       if (existingIndex >= 0) {
@@ -592,7 +592,7 @@
       } else {
         holidays.push({ date, reason: reason || '休業日' });
       }
-      
+
       await apiPost('holidays.php', holidays);
 
       document.getElementById("holiday-date").value = "";
@@ -611,21 +611,21 @@
       const today = new Date();
       const year = today.getFullYear();
       const month = today.getMonth();
-      
+
       // 今月の最初の日と最後の日を取得
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-      
+
       // 今月のすべての日付をチェック
       for (let day = 1; day <= lastDay.getDate(); day++) {
         const date = new Date(year, month, day);
         const dayOfWeek = date.getDay(); // 0=日曜日, 6=土曜日
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        
+
         // 土曜日（6）または日曜日（0）の場合
         if (dayOfWeek === 0 || dayOfWeek === 6) {
           const reason = dayOfWeek === 0 ? '日曜日' : '土曜日';
-          
+
           // 既に登録されているかチェック
           const existingIndex = holidays.findIndex(h => h.date === dateStr);
           if (existingIndex >= 0) {
@@ -635,7 +635,7 @@
           }
         }
       }
-      
+
       await apiPost('holidays.php', holidays);
       alert('今月の土日を休業日として追加しました。');
       loadHolidays();
@@ -808,7 +808,7 @@
         const reservationsForFood = grouped[food];
         const verifiedCount = reservationsForFood.filter(r => r.verified === true || r.verified === 'true').length;
         const totalCount = reservationsForFood.length;
-        
+
         // 各予約者をチェックボックス付きで表示
         const peopleList = reservationsForFood.map(r => {
           // verifiedフラグをチェック（true、'true'、1など様々な形式に対応）
@@ -828,7 +828,7 @@
             </div>
           `;
         }).join('');
-        
+
         return `
           <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
             <h3 style="margin: 0 0 8px 0; font-size: 18px; color: #333;">🍽️ ${food}</h3>
@@ -870,7 +870,7 @@
           const name = review.name && review.name.trim() ? review.name : '匿名';
           const date = review.date || '日付不明';
           const comment = review.comment || '';
-          
+
           return `
             <div style="margin-bottom: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background-color: #f8f9fa;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -886,7 +886,7 @@
         }).join('');
       } catch (error) {
         console.error('レビュー読み込みエラー:', error);
-        document.getElementById("reviews-list").innerHTML = 
+        document.getElementById("reviews-list").innerHTML =
           '<p style="color: red;">レビューの読み込みに失敗しました。</p>';
       }
     }
@@ -1059,7 +1059,7 @@
             <p><strong>🕐 最終リセット時刻:</strong> ${status.lastResetTime || 'なし'}</p>
           </div>
         `;
-        
+
         return status;
       } catch (error) {
         console.error('ステータス確認エラー:', error);
@@ -1073,18 +1073,18 @@
     async function checkAndAutoReset() {
       try {
         const status = await checkResetStatus();
-        
+
         if (status && status.needsReset) {
           // リセットが必要な場合、自動的に実行
           console.log('日付が変わったため、自動リセットを実行します...');
-          
+
           const response = await fetch('api/daily-reset.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
           });
-          
+
           const result = await response.json();
-          
+
           if (result.success) {
             console.log('自動リセットが完了しました');
             // ステータスを更新
@@ -1092,7 +1092,7 @@
             // データを再読み込み
             loadMenus();
             loadReservations();
-            
+
             // 通知を表示（オプション - 必要に応じてコメントアウト）
             // alert('日次リセットが自動的に実行されました。');
           } else {
@@ -1221,15 +1221,15 @@
       document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
       });
-      
+
       // すべてのタブボタンからactiveクラスを削除
       document.querySelectorAll('.tab-button').forEach(button => {
         button.classList.remove('active');
       });
-      
+
       // 選択されたタブを表示
       document.getElementById(`tab-${tabName}`).classList.add('active');
-      
+
       // クリックされたボタンにactiveクラスを追加
       if (buttonElement) {
         buttonElement.classList.add('active');
@@ -1240,13 +1240,13 @@
     function toggleAccordion(header) {
       const content = header.nextElementSibling;
       const isActive = content.classList.contains('active');
-      
+
       // すべてのアコーディオンを閉じる（オプション：他のアコーディオンを開いたままにする場合は削除）
       // document.querySelectorAll('.accordion-content').forEach(acc => {
       //   acc.classList.remove('active');
       //   acc.previousElementSibling.classList.remove('active');
       // });
-      
+
       if (isActive) {
         content.classList.remove('active');
         header.classList.remove('active');
@@ -1275,6 +1275,15 @@
       }).join('');
     }
 
+    // 背景画像のキャッシュ対策
+    document.addEventListener('DOMContentLoaded', function () {
+      const pageBg = document.querySelector('.page-bg');
+      if (pageBg) {
+        const timestamp = new Date().getTime();
+        pageBg.style.backgroundImage = `url('images/olive.jpg?v=${timestamp}')`;
+      }
+    });
+
     window.onload = function () {
       // まず自動リセットチェックを実行（日付が変わっていたら自動リセット）
       checkAndAutoReset().then(() => {
@@ -1296,12 +1305,12 @@
         setInterval(() => {
           loadReservations();
         }, 30000); // 30秒
-        
+
         // レビュー一覧を60秒ごとに自動更新
         setInterval(() => {
           loadReviews();
         }, 60000); // 60秒
-        
+
         // 5分ごとに自動リセットチェック（ページを開きっぱなしの場合）
         setInterval(() => {
           checkAndAutoReset();

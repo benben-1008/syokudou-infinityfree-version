@@ -292,7 +292,7 @@
           <p><strong>お名前:</strong> ${reservation.name}</p>
           <p><strong>予約番号:</strong> ${reservation.reservationNumber}</p>
           <p><strong>メニュー:</strong> ${reservation.food}</p>
-          <p><strong>人数:</strong> ${reservation.people}人</p>
+          <p><strong>人数:</strong> ${reservation.people}</p>
           <p><strong>予約日:</strong> ${reservation.date}</p>
           <p><strong>予約時間:</strong> ${reservation.time}</p>
         `;
@@ -363,6 +363,15 @@
                 return `<p><strong>${p.name}:</strong> <a href="${url}">${url}</a></p>`;
             }).join('');
         }
+
+        // 背景画像のキャッシュ対策
+        document.addEventListener('DOMContentLoaded', function () {
+            const pageBg = document.querySelector('.page-bg');
+            if (pageBg) {
+                const timestamp = new Date().getTime();
+                pageBg.style.backgroundImage = `url('images/olive.jpg?v=${timestamp}')`;
+            }
+        });
 
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', function () {

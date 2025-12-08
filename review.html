@@ -242,7 +242,7 @@
                 displayReviews(reviews);
             } catch (error) {
                 console.error('レビュー取得エラー:', error);
-                document.getElementById('reviews-display').innerHTML = 
+                document.getElementById('reviews-display').innerHTML =
                     '<p style="color: red;">レビューの読み込みに失敗しました。</p>';
             }
         }
@@ -250,7 +250,7 @@
         // レビューを表示
         function displayReviews(reviews) {
             const displayDiv = document.getElementById('reviews-display');
-            
+
             if (!reviews || reviews.length === 0) {
                 displayDiv.innerHTML = '<p>まだレビューがありません。最初のレビューを投稿してみませんか？</p>';
                 return;
@@ -340,6 +340,15 @@
             }).join('');
         }
 
+        // 背景画像のキャッシュ対策
+        document.addEventListener('DOMContentLoaded', function () {
+            const pageBg = document.querySelector('.page-bg');
+            if (pageBg) {
+                const timestamp = new Date().getTime();
+                pageBg.style.backgroundImage = `url('images/olive.jpg?v=${timestamp}')`;
+            }
+        });
+
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', function () {
             loadReviews();
@@ -349,4 +358,3 @@
 </body>
 
 </html>
-

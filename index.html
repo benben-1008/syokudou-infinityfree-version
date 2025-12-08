@@ -37,7 +37,8 @@
       </section>
 
       <section class="info-section">
-        <div class="holiday-header" onclick="toggleHolidayList()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 10px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+        <div class="holiday-header" onclick="toggleHolidayList()"
+          style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 10px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
           <h2 style="margin: 0;">📅 今後の休業日</h2>
           <span id="holiday-toggle-icon" style="font-size: 20px; transition: transform 0.3s;">▼</span>
         </div>
@@ -66,10 +67,6 @@
             <div class="link-icon">🤖</div>
             <h3>食堂専用AIアシスタント</h3>
           </a>
-          <a href="my-reservations.php" class="link-card">
-            <div class="link-icon">📋</div>
-            <h3>マイ予約履歴</h3>
-          </a>
           <a href="review.html" class="link-card">
             <div class="link-icon">⭐</div>
             <h3>レビュー投稿</h3>
@@ -89,6 +86,15 @@
   </div>
 
   <script>
+    // 背景画像のキャッシュ対策
+    document.addEventListener('DOMContentLoaded', function () {
+      const pageBg = document.querySelector('.page-bg');
+      if (pageBg) {
+        const timestamp = new Date().getTime();
+        pageBg.style.backgroundImage = `url('images/olive.jpg?v=${timestamp}')`;
+      }
+    });
+
     const API_BASE = 'api/';
     async function apiGet(path) {
       const res = await fetch(API_BASE + path, { cache: 'no-store' });
@@ -108,7 +114,7 @@
       const todayObj = new Date();
       const dayOfWeek = todayObj.getDay(); // 0=日曜日, 6=土曜日
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      
+
       if (todayHoliday || isWeekend) {
         const reason = todayHoliday?.reason || (dayOfWeek === 0 ? '日曜日' : '土曜日');
         statusDiv.innerHTML = `<p>🚫 本日（${today}）は休業です。<br>理由: ${reason}</p>`;
@@ -215,7 +221,7 @@
     function toggleHolidayList() {
       const container = document.getElementById('holidays-list-container');
       const icon = document.getElementById('holiday-toggle-icon');
-      
+
       if (container.style.display === 'none') {
         container.style.display = 'block';
         icon.style.transform = 'rotate(180deg)';

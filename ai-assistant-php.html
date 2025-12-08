@@ -8,10 +8,43 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         .page-bg {
+            position: relative;
+            background-color: #f5f5f5;
+        }
+
+        .page-bg::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background-image: url('images/olive.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
+            opacity: 0.2;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .page-bg-image-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            opacity: 0.2;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .page-bg > * {
+            position: relative;
+            z-index: 2;
         }
 
         .container {
@@ -56,6 +89,62 @@
             background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
+        }
+
+        /* デバッグ情報表示用のスタイル */
+        .debug-info {
+            margin-top: 10px;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .debug-info.gemini {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+        }
+
+        .debug-info.groq {
+            background: linear-gradient(135deg, #00d4ff 0%, #090979 100%);
+        }
+
+        .debug-info.openai {
+            background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+        }
+
+        .debug-info.huggingface {
+            background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+        }
+
+        .debug-info.ollama {
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+        }
+
+        .debug-info-title {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .debug-info-detail {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        .api-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.3);
+            margin-left: 8px;
         }
 
         /* 追加: アバターとメッセージレイアウト */
@@ -108,13 +197,14 @@
 </head>
 
 <body class="page-bg">
+    <div class="page-bg-image-overlay" id="bgImageOverlay"></div>
     <div class="container">
         <header>
             <h1>🍽️ 食堂専用AIアシスタント</h1>
             <p>メニュー、営業時間、予約についてお答えします</p>
             <div class="ai-hero" aria-label="AIテーマ">
-                <span>🦙</span><span>＋</span><span>🍽️</span>
-                <span style="color:#6c757d; font-size:14px;">ラマ × 食堂</span>
+                <span>🤖</span><span>＋</span><span>🍽️</span>
+                <span style="color:#6c757d; font-size:14px;">AI × 食堂</span>
             </div>
         </header>
 
@@ -174,6 +264,14 @@
         // ページ読み込み完了時に実行
         document.addEventListener('DOMContentLoaded', function () {
             console.log('AIアシスタント（PHP版）が読み込まれました');
+            
+            // 背景画像を設定（キャッシュ対策）
+            const bgOverlay = document.getElementById('bgImageOverlay');
+            if (bgOverlay) {
+                const timestamp = new Date().getTime();
+                bgOverlay.style.backgroundImage = `url('images/olive.jpg?v=${timestamp}')`;
+                console.log('背景画像を設定しました:', `images/olive.jpg?v=${timestamp}`);
+            }
 
             // 初期メッセージを表示
             addMessageToChat('assistant', 'こんにちは！食堂のAIアシスタントです。\n\n何かお手伝いできることがございましたら、お気軽にお声かけください。');
@@ -328,26 +426,79 @@
         }
 
         // メッセージをチャットに追加
-        function addMessageToChat(sender, message) {
+        function addMessageToChat(sender, message, debugInfo = null) {
             const chatMessages = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
 
             const senderName = sender === 'user' ? 'あなた' : 'AIアシスタント';
-            const avatarEmoji = sender === 'user' ? '👤' : '🦙🍽️';
+            const avatarEmoji = sender === 'user' ? '👤' : '🤖🍽️';
+            
+            // デバッグ情報がある場合、AI名を表示
+            let apiNameDisplay = '';
+            if (debugInfo && debugInfo.usedApi) {
+                const apiNames = {
+                    'gemini': '🤖 Gemini',
+                    'groq': '⚡ Groq',
+                    'openai': '🧠 OpenAI',
+                    'huggingface': '🤗 Hugging Face',
+                    'ollama': '🤖 Ollama'
+                };
+                apiNameDisplay = `<span class="api-badge">${apiNames[debugInfo.usedApi] || debugInfo.usedApi}</span>`;
+            }
+            
             messageDiv.innerHTML = `
                 <div class="avatar" aria-hidden="true">${avatarEmoji}</div>
                 <div class="content">
                     <div class="message-header">
-                        <strong>${senderName}</strong>
+                        <strong>${senderName}</strong>${apiNameDisplay}
                         <span class="message-time">${new Date().toLocaleTimeString('ja-JP')}</span>
                     </div>
                     <div class="message-content">${message.replace(/\n/g, '<br>')}</div>
+                    ${debugInfo && debugInfo.usedApi ? createDebugInfoHTML(debugInfo) : ''}
                 </div>
             `;
 
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // デバッグ情報のHTMLを生成
+        function createDebugInfoHTML(debugInfo) {
+            if (!debugInfo || !debugInfo.usedApi) return '';
+            
+            const apiName = debugInfo.usedApi;
+            const apiEmojis = {
+                'gemini': '🤖',
+                'groq': '⚡',
+                'openai': '🧠',
+                'huggingface': '🤗',
+                'ollama': '🤖'
+            };
+            
+            const apiNames = {
+                'gemini': 'Google Gemini',
+                'groq': 'Groq',
+                'openai': 'OpenAI',
+                'huggingface': 'Hugging Face',
+                'ollama': 'Ollama'
+            };
+            
+            let details = [];
+            
+            if (apiName === 'gemini' && debugInfo.geminiEnabled !== undefined) {
+                details.push(`Gemini有効: ${debugInfo.geminiEnabled ? '✅' : '❌'}`);
+                details.push(`APIキー設定: ${debugInfo.geminiApiKeySet ? '✅' : '❌'}`);
+            }
+            
+            return `
+                <div class="debug-info ${apiName}">
+                    <div class="debug-info-title">
+                        ${apiEmojis[apiName] || '🤖'} 使用AI: <strong>${apiNames[apiName] || apiName}</strong>
+                    </div>
+                    ${details.length > 0 ? `<div class="debug-info-detail">${details.join(' | ')}</div>` : ''}
+                </div>
+            `;
         }
 
         // メッセージを送信
@@ -396,19 +547,71 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`PHP API Error: ${response.status} ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error('PHP API HTTPエラー:', response.status, response.statusText);
+                    console.error('エラーレスポンス:', errorText);
+                    throw new Error(`PHP API Error: ${response.status} ${response.statusText}\nレスポンス: ${errorText.substring(0, 500)}`);
                 }
 
-                const data = await response.json();
-                console.log('PHP APIからの応答:', data);
+                // レスポンステキストを取得してからJSON解析
+                const responseText = await response.text();
+                console.log('PHP APIからの生レスポンス（最初の500文字）:', responseText.substring(0, 500));
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                    console.log('PHP APIからの応答（解析成功）:', data);
+                } catch (jsonError) {
+                    console.error('=== JSON解析エラー ===');
+                    console.error('エラー:', jsonError);
+                    console.error('レスポンステキスト（全文）:', responseText);
+                    console.error('レスポンス長:', responseText.length);
+                    throw new Error(`JSON解析エラー: ${jsonError.message}\nレスポンス（最初の1000文字）: ${responseText.substring(0, 1000)}`);
+                }
 
-                // Ollamaの使用状況をコンソールに表示
-                console.log('=== AI API 使用状況 ===');
-                console.log('Ollama利用可能:', data.ollamaAvailable);
-                console.log('Ollama使用:', data.ollamaUsed);
-                console.log('APIタイプ:', data.apiType);
+                // デバッグ情報をコンソールに表示（改善版）
+                const usedApi = data.usedApi || data.apiType || 'unknown';
+                const apiEmojis = {
+                    'gemini': '🤖',
+                    'groq': '⚡',
+                    'openai': '🧠',
+                    'huggingface': '🤗',
+                    'ollama': '🤖'
+                };
+                const apiNames = {
+                    'gemini': 'Google Gemini',
+                    'groq': 'Groq',
+                    'openai': 'OpenAI',
+                    'huggingface': 'Hugging Face',
+                    'ollama': 'Ollama'
+                };
+                
+                console.log('%c=== AI API 使用状況 ===', 'font-size: 16px; font-weight: bold; color: #667eea;');
+                console.log(`%c${apiEmojis[usedApi] || '🤖'} 使用されたAI: ${apiNames[usedApi] || usedApi}`, 
+                    'font-size: 14px; font-weight: bold; color: #4285f4; background: #e8f0fe; padding: 4px 8px; border-radius: 4px;');
+                console.log('Gemini有効:', data.debug?.geminiEnabled ? '✅' : '❌');
+                console.log('Gemini APIキー設定:', data.debug?.geminiApiKeySet ? '✅' : '❌');
+                console.log('OpenAI有効:', data.debug?.openaiEnabled ? '✅' : '❌');
+                console.log('OpenAI APIキー設定:', data.debug?.openaiApiKeySet ? '✅' : '❌');
+                
+                // デバッグログを表示（開発者ツールで確認可能）
+                if (data.debug?.debugLogs && data.debug.debugLogs.length > 0) {
+                    console.log('%c=== デバッグログ（サーバー側） ===', 'font-size: 14px; font-weight: bold; color: #ff6b6b;');
+                    data.debug.debugLogs.forEach((log, index) => {
+                        const isError = log.includes('エラー') || log.includes('失敗') || log.includes('HTTP エラー');
+                        const isSuccess = log.includes('成功');
+                        const style = isError 
+                            ? 'color: #ff6b6b; font-weight: bold;' 
+                            : isSuccess 
+                            ? 'color: #51cf66; font-weight: bold;'
+                            : 'color: #495057;';
+                        console.log(`%c[${index + 1}] ${log}`, style);
+                    });
+                    console.log('========================');
+                }
+                
                 if (data.debug) {
-                    console.log('デバッグ情報:', data.debug);
+                    console.log('詳細デバッグ情報:', data.debug);
                 }
                 console.log('========================');
 
@@ -417,20 +620,20 @@
                     let responseText = data.response;
 
                     // デバッグ情報がある場合、コンソールに詳細を表示
-                    if (data.debug && !data.ollamaUsed) {
-                        console.warn('Ollamaが使用されていません。');
+                    if (data.debug && !data.ollamaUsed && usedApi === 'unknown') {
+                        console.warn('⚠️ AI APIが使用されていません。');
                         console.warn('デバッグ情報:', data.debug);
 
                         // ユーザーに分かりやすいメッセージを追加
                         if (!data.ollamaAvailable) {
-                            responseText += '\n\n💡 **ヒント**: Ollamaが起動していない可能性があります。ターミナルで "ollama serve" を実行してください。';
+                            responseText += '\n\n💡 **ヒント**: AI APIが利用できない可能性があります。設定を確認してください。';
                         } else if (!data.debug.useOllama) {
                             responseText += '\n\n💡 **ヒント**: 「AI APIを使用する」にチェックが入っているか確認してください。';
                         }
                     }
 
-                    // AIの応答を表示
-                    addMessageToChat('assistant', responseText);
+                    // AIの応答を表示（デバッグ情報を含む）
+                    addMessageToChat('assistant', responseText, data.debug || { usedApi: usedApi });
                     chatHistory.push({ sender: 'assistant', message: data.response });
                 } else {
                     throw new Error('PHP APIからの応答が無効です');
@@ -440,108 +643,27 @@
                 console.error('PHP API呼び出しエラー:', error);
                 console.log('エラーの詳細:', error.message);
 
-                // フォールバックとして基本的な応答を表示
-                const fallbackResponse = generateBasicResponse(userMessage);
-                addMessageToChat('assistant', fallbackResponse + '\n\n⚠️ *API接続エラーのため基本応答システムを使用しました*');
-                chatHistory.push({ sender: 'assistant', message: fallbackResponse });
+                // デフォルト応答を削除：エラーを明確に表示
+                const errorMessage = `❌ **API接続エラーが発生しました**\n\n` +
+                    `**エラー詳細**:\n` +
+                    `- エラーメッセージ: ${error.message}\n` +
+                    `- ステータス: API接続に失敗しました\n\n` +
+                    `**考えられる原因**:\n` +
+                    `1. サーバーへの接続が失敗している\n` +
+                    `2. PHP API（ai-response.php）が正しく動作していない\n` +
+                    `3. InfinityFreeのセキュリティ設定により接続がブロックされている可能性\n\n` +
+                    `**デバッグ方法**:\n` +
+                    `- ブラウザの開発者ツール（F12）のコンソールで詳細なエラーを確認してください\n` +
+                    `- サーバーのエラーログを確認してください\n` +
+                    `- ネットワークタブでAPIリクエストのステータスを確認してください`;
+                
+                addMessageToChat('assistant', errorMessage);
+                chatHistory.push({ sender: 'assistant', message: errorMessage });
             }
         }
 
-        // 基本的な応答を生成（フォールバック用）
-        function generateBasicResponse(userMessage) {
-            const message = userMessage.toLowerCase();
-
-            // 天気に関する質問
-            if (message.includes('天気') || message.includes('weather')) {
-                return `申し訳ございませんが、天気予報については食堂のAIアシスタントではお答えできません。
-
-食堂について以下の内容でしたらお答えできます：
-
-🍽️ メニューについて
-⏰ 営業時間について  
-📝 予約について
-⚠️ アレルギー対応について
-💰 料金について
-📍 場所について
-
-食堂に関するご質問をお聞かせください。`;
-            }
-
-            // 時間に関する質問
-            if (message.includes('今何時') || message.includes('時間') || message.includes('時刻')) {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('ja-JP', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
-                });
-                return `現在の時刻は${timeString}です。
-
-食堂の営業時間は平日11:30-13:00ですので、${now.getHours() >= 11 && now.getHours() < 13 ? '現在営業中です' : '現在は営業時間外です'}。
-
-他にご質問がございましたらお聞かせください。`;
-            }
-
-            // メニューに関する質問
-            if (message.includes('メニュー') || message.includes('料理') || message.includes('食べ物') || message.includes('今日')) {
-                return `今日のメニューは以下の通りです：
-
-🍽️ **今日の定食**
-
-🍛 **日替わり定食** - 550円
-・主菜：とんかつ
-・副菜：サラダ、味噌汁
-・ご飯、漬物
-
-🍜 **麺類**
-・醤油ラーメン - 450円
-・かけうどん - 350円
-
-🍚 **丼物**
-・親子丼 - 400円
-・カツ丼 - 450円
-
-🥤 **飲み物**
-・コーヒー - 100円
-・紅茶 - 100円
-・ジュース - 120円
-
-**営業時間：** 平日 11:30-13:00
-**支払い方法：** 現金、学食カード
-
-他にご質問がございましたらお聞かせください。`;
-            }
-
-            // 挨拶
-            if (message.includes('こんにちは') || message.includes('こんばんは') || message.includes('おはよう') || message.includes('hello') || message.includes('hi')) {
-                return `こんにちは！食堂のAIアシスタントです。
-
-何かお手伝いできることがございましたら、お気軽にお声かけください。
-
-🍽️ メニューについて
-⏰ 営業時間について  
-📝 予約について
-⚠️ アレルギー対応について
-💰 料金について
-📍 場所について
-
-どのようなご質問でもお受けいたします！`;
-            }
-
-            // デフォルトの応答
-            return `申し訳ございませんが、その質問にはお答えできません。
-
-食堂について以下の内容でしたらお答えできます：
-
-🍽️ メニューについて
-⏰ 営業時間について  
-📝 予約について
-⚠️ アレルギー対応について
-💰 料金について
-📍 場所について
-
-具体的なご質問をお聞かせください。`;
-        }
+        // デフォルト応答関数を削除しました
+        // AIが実際に動作しているかどうかを確認するため、デフォルト応答は使用しません
     </script>
 </body>
 

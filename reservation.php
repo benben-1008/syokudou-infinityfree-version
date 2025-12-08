@@ -133,35 +133,6 @@ header('Cache-Control: no-cache, max-age=0');
             </div>
           </div>
 
-          <!-- ログインセクション -->
-          <div id="login-section" style="margin-bottom: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9; display: none;">
-            <h3 style="margin: 0 0 10px 0; color: #2e7d32;">🔐 Googleアカウントでログイン</h3>
-            <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">ログインすると、お名前が自動入力され、予約履歴を確認できます。</p>
-            <div id="g_id_onload"
-                data-client_id="YOUR_GOOGLE_CLIENT_ID"
-                data-callback="handleCredentialResponse"
-                data-auto_prompt="false">
-            </div>
-            <div class="g_id_signin" 
-                data-type="standard"
-                data-size="large"
-                data-theme="outline"
-                data-text="sign_in_with"
-                data-shape="rectangular"
-                data-logo_alignment="left">
-            </div>
-          </div>
-
-          <!-- ユーザー情報表示 -->
-          <div id="user-info-section" style="margin-bottom: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9; display: none;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-              <img id="user-avatar-small" src="" alt="ユーザー" style="width: 30px; height: 30px; border-radius: 50%;">
-              <span id="user-name-display" style="font-weight: bold; color: #2e7d32;"></span>
-              <button onclick="logout()" style="margin-left: auto; padding: 5px 10px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">ログアウト</button>
-            </div>
-            <a href="my-reservations.php" style="font-size: 14px; color: #2e7d32; text-decoration: none;">📋 予約履歴を確認</a>
-          </div>
-
           <form id="reservation-form">
             <div class="form-group">
               <label for="student-name">お名前 *</label>
@@ -272,7 +243,6 @@ header('Cache-Control: no-cache, max-age=0');
         $pages = [
           ['name' => '生徒用サイト (index.html)', 'file' => 'index.html'],
           ['name' => '予約サイト (reservation.php)', 'file' => 'reservation.php'],
-          ['name' => 'マイ予約履歴 (my-reservations.php)', 'file' => 'my-reservations.php'],
           ['name' => '予約確認システム (verification.html)', 'file' => 'verification.html'],
           ['name' => '食堂専用AIアシスタント (ai-assistant-php.html)', 'file' => 'ai-assistant-php.html']
         ];
@@ -312,150 +282,15 @@ header('Cache-Control: no-cache, max-age=0');
     </footer>
   </div>
 
-  <!-- Google Sign-In API（オプション - エラー時もページが表示されるように） -->
-  <script>
-    // Google Sign-In APIの読み込みを試行（失敗してもページは表示される）
-    const googleScript = document.createElement('script');
-    googleScript.src = 'https://accounts.google.com/gsi/client';
-    googleScript.async = true;
-    googleScript.defer = true;
-    googleScript.onerror = function() {
-      console.warn('Google Sign-In APIの読み込みに失敗しました（ログイン機能は無効になります）');
-      // ログインセクションを非表示
-      document.addEventListener('DOMContentLoaded', function() {
-        const loginSection = document.getElementById('login-section');
-        if (loginSection) {
-          loginSection.style.display = 'none';
-        }
-      });
-    };
-    document.head.appendChild(googleScript);
-  </script>
   <script src="reservation-script.js"></script>
   <script>
-    // Google Client ID（実際の値に置き換えてください）
-    const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
-
-    // ページ読み込み時にログイン状態を確認
-    async function checkLoginStatus() {
-      try {
-        // タイムアウトを設定（5秒）
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        const response = await fetch('api/auth.php', {
-          method: 'GET',
-          credentials: 'include',
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          throw new Error('認証APIの応答が不正です');
-        }
-        
-        const data = await response.json();
-        
-        if (data.loggedIn) {
-          showUserInfo(data.user);
-          // 名前を自動入力
-          const nameInput = document.getElementById('student-name');
-          if (nameInput) {
-            nameInput.value = data.user.name;
-          }
-        } else {
-          showLoginSection();
-        }
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.warn('ログイン状態の確認がタイムアウトしました（無視して続行）');
-        } else {
-          console.error('ログイン状態の確認に失敗:', error);
-        }
-        // エラー時はログインセクションを非表示にして、通常の予約フォームを表示
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('user-info-section').style.display = 'none';
-      }
-    }
-
-    // ログインセクションを表示
-    function showLoginSection() {
-      document.getElementById('login-section').style.display = 'block';
-      document.getElementById('user-info-section').style.display = 'none';
-    }
-
-    // ユーザー情報を表示
-    function showUserInfo(user) {
-      document.getElementById('login-section').style.display = 'none';
-      document.getElementById('user-info-section').style.display = 'block';
-      
-      document.getElementById('user-name-display').textContent = user.name;
-      if (user.picture) {
-        document.getElementById('user-avatar-small').src = user.picture;
-      }
-    }
-
-    // Google Sign-In コールバック
-    async function handleCredentialResponse(response) {
-      try {
-        // IDトークンをデコード（簡易版）
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        
-        const loginResponse = await fetch('api/auth.php', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            idToken: response.credential,
-            userInfo: {
-              sub: payload.sub,
-              email: payload.email,
-              name: payload.name,
-              given_name: payload.given_name,
-              picture: payload.picture
-            }
-          })
-        });
-
-        const data = await loginResponse.json();
-        
-        if (data.success) {
-          showUserInfo(data.user);
-          // 名前を自動入力
-          document.getElementById('student-name').value = data.user.name;
-        } else {
-          alert('ログインに失敗しました: ' + (data.error || '不明なエラー'));
-        }
-      } catch (error) {
-        console.error('ログインエラー:', error);
-        alert('ログインに失敗しました。');
-      }
-    }
-
-    // ログアウト
-    async function logout() {
-      try {
-        await fetch('api/auth.php', {
-          method: 'DELETE',
-          credentials: 'include'
-        });
-        
-        showLoginSection();
-        document.getElementById('student-name').value = '';
-      } catch (error) {
-        console.error('ログアウトエラー:', error);
-      }
-    }
-
-    // ページ読み込み時に実行
+    // 背景画像のキャッシュ対策
     document.addEventListener('DOMContentLoaded', function() {
-      // ログイン状態の確認は非同期で実行（ブロックしない）
-      setTimeout(() => {
-        checkLoginStatus();
-      }, 100);
+      const pageBg = document.querySelector('.page-bg');
+      if (pageBg) {
+        const timestamp = new Date().getTime();
+        pageBg.style.backgroundImage = `url('images/olive.jpg?v=${timestamp}')`;
+      }
       
       // 予約時間のチェックも実行
       if (typeof checkReservationTime === 'function') {
