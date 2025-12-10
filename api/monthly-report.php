@@ -56,6 +56,12 @@ function generateMonthlyReport($year, $month) {
         }
     }
     
+    // 今日の日付を取得
+    $today = new DateTime();
+    $todayYear = intval($today->format('Y'));
+    $todayMonth = intval($today->format('n'));
+    $todayDay = intval($today->format('j'));
+    
     // 土日を休業日として追加
     for ($day = 1; $day <= $daysInMonth; $day++) {
         $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
@@ -68,8 +74,29 @@ function generateMonthlyReport($year, $month) {
         }
     }
     
-    // 営業日数 = 月の日数 - 休業日数（登録されている休業日 + 土日）
-    $totalDays = $daysInMonth - count($monthHolidays);
+    // 営業日数を計算（その日までのカレンダーで白のところの総合計）
+    $totalDays = 0;
+    
+    // 指定された月が現在の月より未来の場合は0
+    if ($year > $todayYear || ($year == $todayYear && $month > $todayMonth)) {
+        $totalDays = 0;
+    } else {
+        // カウントする最終日を決定
+        $endDay = $daysInMonth;
+        if ($year == $todayYear && $month == $todayMonth) {
+            // 現在の月の場合は今日まで
+            $endDay = $todayDay;
+        }
+        
+        // 1日から最終日まで、休業日でない日をカウント
+        for ($day = 1; $day <= $endDay; $day++) {
+            $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
+            // 休業日でない場合（カレンダーで白のところ）のみカウント
+            if (!in_array($dateStr, $monthHolidays)) {
+                $totalDays++;
+            }
+        }
+    }
     
     // 指定された月の予約を抽出
     $monthReservations = [];
@@ -115,7 +142,8 @@ function generateMonthlyReport($year, $month) {
             $dailyData[$date] = [
                 'date' => $date,
                 'reservations' => 0, // 予約人数の合計
-                'people' => 0 // 認証済み人数
+                'people' => 0, // 認証済み人数
+                'menuSales' => [] // 日別メニュー別売上
             ];
         }
         
@@ -127,6 +155,14 @@ function generateMonthlyReport($year, $month) {
         if ($verified) {
             $dailyData[$date]['people'] += $people;
             $report['totalPeople'] += $people;
+            
+            // 日別メニュー別売上を集計（認証済みのみ）
+            if ($food) {
+                if (!isset($dailyData[$date]['menuSales'][$food])) {
+                    $dailyData[$date]['menuSales'][$food] = 0;
+                }
+                $dailyData[$date]['menuSales'][$food] += $people;
+            }
         }
         
         // メニュー別売上を集計（認証済みのみ）
@@ -206,9 +242,20 @@ function generateExcelReport($report) {
     }
     
     $csv .= "\n日別売上\n";
-    $csv .= "日付,予約数,来客数\n";
+    $csv .= "日付,予約数,来客数,メニュー別売上\n";
     foreach ($report['dailySales'] as $daily) {
-        $csv .= "{$daily['date']},{$daily['reservations']},{$daily['people']}\n";
+        $menuSales = $daily['menuSales'] ?? [];
+        $menuSalesText = '';
+        if (!empty($menuSales)) {
+            $menuItems = [];
+            foreach ($menuSales as $menu => $quantity) {
+                $menuItems[] = "{$menu}:{$quantity}";
+            }
+            $menuSalesText = implode(' / ', $menuItems);
+        } else {
+            $menuSalesText = 'データなし';
+        }
+        $csv .= "{$daily['date']},{$daily['reservations']},{$daily['people']},\"{$menuSalesText}\"\n";
     }
     
     return $csv;
