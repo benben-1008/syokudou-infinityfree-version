@@ -257,12 +257,10 @@
             }
 
             displayDiv.innerHTML = reviews.map(review => {
-                const name = review.name && review.name.trim() ? review.name : '匿名';
                 const date = review.date || '日付不明';
                 return `
                     <div class="review-item">
                         <div class="review-header">
-                            <span class="review-name">${escapeHtml(name)}</span>
                             <span class="review-date">${escapeHtml(date)}</span>
                         </div>
                         <div class="review-comment">${escapeHtml(review.comment)}</div>

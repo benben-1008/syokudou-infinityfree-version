@@ -422,6 +422,52 @@
             </div>
           </div>
         </section>
+
+        <!-- 🔹 AI分析 -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>🤖 AI分析</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="admin-card">
+                <h3>AIによるデータ分析</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                  レビューや売上データをAIが分析し、改善点や良い点をわかりやすく提示します。
+                </p>
+                <div class="form-group">
+                  <label for="ai-analysis-year">年:</label>
+                  <select id="ai-analysis-year">
+                    <option value="2024">2024年</option>
+                    <option value="2025" selected>2025年</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="ai-analysis-month">月:</label>
+                  <select id="ai-analysis-month">
+                    <option value="1">1月</option>
+                    <option value="2">2月</option>
+                    <option value="3">3月</option>
+                    <option value="4">4月</option>
+                    <option value="5">5月</option>
+                    <option value="6">6月</option>
+                    <option value="7">7月</option>
+                    <option value="8">8月</option>
+                    <option value="9">9月</option>
+                    <option value="10">10月</option>
+                    <option value="11">11月</option>
+                    <option value="12">12月</option>
+                  </select>
+                </div>
+                <div style="margin-bottom:10px;">
+                  <button onclick="performAIAnalysis()" class="btn btn-primary">🤖 AI分析を実行</button>
+                </div>
+                <div id="ai-analysis-display"></div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <!-- その他タブ -->
@@ -1120,6 +1166,32 @@
       }
     }
 
+    function generateMenuSalesTable(menuSales) {
+      const menuEntries = Object.entries(menuSales);
+      
+      if (menuEntries.length === 0) {
+        return '<p>メニュー別売上データがありません。</p>';
+      }
+      
+      // 売上数でソート（降順）
+      menuEntries.sort((a, b) => b[1] - a[1]);
+      
+      return `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+          <tr style="background-color: #f8f9fa;">
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">メニュー名</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">売上数（個）</th>
+          </tr>
+          ${menuEntries.map(([menu, quantity]) => `
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 8px;">${menu}</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${quantity}</td>
+            </tr>
+          `).join('')}
+        </table>
+      `;
+    }
+
     function displayReport(report) {
       const reportDiv = document.getElementById('report-display');
 
@@ -1131,20 +1203,37 @@
       // 日別売上データ
       const dailyData = report.dailySales || [];
       const dailyTable = dailyData.length > 0 ? `
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-          <tr style="background-color: #f8f9fa;">
-            <th style="border: 1px solid #ddd; padding: 8px;">日付</th>
-            <th style="border: 1px solid #ddd; padding: 8px;">予約数</th>
-            <th style="border: 1px solid #ddd; padding: 8px;">来客数</th>
-          </tr>
-          ${dailyData.map(day => `
-            <tr>
-              <td style="border: 1px solid #ddd; padding: 8px;">${day.date}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${day.reservations}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${day.people}</td>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 600px;">
+            <tr style="background-color: #f8f9fa;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">日付</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">予約数</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">来客数</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">メニュー別売上</th>
             </tr>
-          `).join('')}
-        </table>
+            ${dailyData.map(day => {
+              const menuSales = day.menuSales || {};
+              let menuSalesText = '';
+              if (Object.keys(menuSales).length > 0) {
+                const menuEntries = Object.entries(menuSales)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([menu, qty]) => `<span style="display: inline-block; margin-right: 10px; margin-bottom: 4px; padding: 3px 8px; background-color: #e3f2fd; border-radius: 4px; font-size: 12px;"><strong>${menu}</strong>: ${qty}個</span>`);
+                menuSalesText = menuEntries.join('');
+              } else {
+                menuSalesText = '<span style="color: #999;">データなし</span>';
+              }
+              
+              return `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${day.date}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${day.reservations}人</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; color: #28a745;">${day.people}人</td>
+                <td style="border: 1px solid #ddd; padding: 8px; line-height: 1.8;">${menuSalesText}</td>
+              </tr>
+            `;
+            }).join('')}
+          </table>
+        </div>
       ` : '<p>データがありません。</p>';
 
       reportDiv.innerHTML = `
@@ -1173,6 +1262,11 @@
           <div style="margin-bottom: 20px;">
             <h4>🏆 人気メニュー TOP5</h4>
             <ul>${topMenuItems}</ul>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <h4>🍽️ メニュー別売上数</h4>
+            ${generateMenuSalesTable(report.menuSales || {})}
           </div>
           
           <div style="margin-bottom: 20px;">
@@ -1212,6 +1306,82 @@
       } catch (error) {
         console.error('ダウンロードエラー:', error);
         alert('ダウンロードに失敗しました。');
+      }
+    }
+
+    // === AI分析 ===
+    async function performAIAnalysis() {
+      const year = document.getElementById('ai-analysis-year').value;
+      const month = document.getElementById('ai-analysis-month').value;
+      const displayDiv = document.getElementById('ai-analysis-display');
+
+      // ローディング表示
+      displayDiv.innerHTML = `
+        <div style="padding: 20px; text-align: center; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+          <p style="font-size: 18px; color: #666;">🤖 AI分析を実行中...</p>
+          <p style="color: #999; margin-top: 10px;">しばらくお待ちください（30秒〜2分程度かかる場合があります）</p>
+        </div>
+      `;
+
+      try {
+        const response = await fetch(`api/ai-analysis.php?year=${year}&month=${month}`);
+        const result = await response.json();
+
+        if (result.error) {
+          displayDiv.innerHTML = `
+            <div style="padding: 20px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffc107; margin-top: 15px;">
+              <h4 style="color: #856404; margin-top: 0;">⚠️ エラー</h4>
+              <p style="color: #856404;">${result.error}</p>
+              <p style="color: #856404; font-size: 14px; margin-top: 10px;">
+                AI APIの設定を確認してください。ollama-config.phpでOpenAI、Gemini、またはGroqのAPIキーを設定する必要があります。
+              </p>
+            </div>
+          `;
+          return;
+        }
+
+        if (result.analysis) {
+          // Markdown形式のテキストをHTMLに変換（簡易版）
+          let analysisHtml = result.analysis
+            .replace(/\n/g, '<br>')
+            .replace(/## (.*?)(<br>|$)/g, '<h3 style="color: #333; margin-top: 20px; margin-bottom: 10px;">$1</h3>')
+            .replace(/### (.*?)(<br>|$)/g, '<h4 style="color: #555; margin-top: 15px; margin-bottom: 8px;">$1</h4>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/✅/g, '<span style="color: #28a745;">✅</span>')
+            .replace(/🔧/g, '<span style="color: #ffc107;">🔧</span>')
+            .replace(/💡/g, '<span style="color: #17a2b8;">💡</span>')
+            .replace(/📊/g, '<span style="color: #007bff;">📊</span>');
+
+          displayDiv.innerHTML = `
+            <div style="padding: 20px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; margin-top: 15px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="color: #333; margin: 0;">🤖 AI分析結果 - ${year}年${month}月</h3>
+                <span style="font-size: 12px; color: #666; background-color: white; padding: 4px 8px; border-radius: 4px;">
+                  使用API: ${result.api || '不明'}
+                </span>
+              </div>
+              <div style="background-color: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; line-height: 1.8; color: #333;">
+                ${analysisHtml}
+              </div>
+            </div>
+          `;
+        } else {
+          displayDiv.innerHTML = `
+            <div style="padding: 20px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffc107; margin-top: 15px;">
+              <h4 style="color: #856404; margin-top: 0;">⚠️ エラー</h4>
+              <p style="color: #856404;">分析結果を取得できませんでした。</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('AI分析エラー:', error);
+        displayDiv.innerHTML = `
+          <div style="padding: 20px; background-color: #f8d7da; border-radius: 8px; border: 1px solid #dc3545; margin-top: 15px;">
+            <h4 style="color: #721c24; margin-top: 0;">❌ エラー</h4>
+            <p style="color: #721c24;">AI分析の実行に失敗しました。</p>
+            <p style="color: #721c24; font-size: 14px; margin-top: 10px;">エラー詳細: ${error.message}</p>
+          </div>
+        `;
       }
     }
 
@@ -1300,6 +1470,7 @@
         // 現在の月を選択
         const currentMonth = new Date().getMonth() + 1;
         document.getElementById('report-month').value = currentMonth;
+        document.getElementById('ai-analysis-month').value = currentMonth;
 
         // 予約一覧を30秒ごとに自動更新
         setInterval(() => {
