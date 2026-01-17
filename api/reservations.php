@@ -62,8 +62,18 @@ switch ($_SERVER['REQUEST_METHOD']) {
             $reservationNumber !== null && 
             $updateNumber !== null &&
             $reservationNumber === $updateNumber) {
-          // verifiedフラグを更新
-          $reservation['verified'] = true;
+          // verifiedフラグを更新（まだ認証されていない場合のみ）
+          if (!isset($reservation['verified']) || !$reservation['verified']) {
+            $reservation['verified'] = true;
+            
+            // sales-dataを更新（認証済みとして+1）
+            define('SALES_DATA_INTERNAL', true);
+            require_once __DIR__ . '/sales-data.php';
+            $date = $reservation['date'] ?? date('Y-m-d');
+            $food = $reservation['food'] ?? '';
+            $people = intval($reservation['people'] ?? 1);
+            updateVerificationStatus($date, $food, $people);
+          }
           $found = true;
           break;
         }
@@ -87,6 +97,17 @@ switch ($_SERVER['REQUEST_METHOD']) {
       break;
     }
     
+    // 既存の予約データを取得
+    $existingReservations = read_json($file);
+    
+    // 既存の予約のIDを取得（重複チェック用）
+    $existingIds = [];
+    foreach ($existingReservations as $existing) {
+        if (isset($existing['id'])) {
+            $existingIds[$existing['id']] = $existing;
+        }
+    }
+    
     // 同じ日に同じ名前の予約がないかチェック
     $nameDateMap = [];
     foreach ($data as $reservation) {
@@ -107,6 +128,24 @@ switch ($_SERVER['REQUEST_METHOD']) {
       }
       
       $nameDateMap[$key] = true;
+    }
+    
+    // 新しい予約を検出してsales-dataに追加
+    define('SALES_DATA_INTERNAL', true);
+    require_once __DIR__ . '/sales-data.php';
+    foreach ($data as $reservation) {
+        $reservationId = $reservation['id'] ?? null;
+        
+        // 既存の予約にない場合は新規予約
+        if ($reservationId === null || !isset($existingIds[$reservationId])) {
+            $date = $reservation['date'] ?? date('Y-m-d');
+            $food = $reservation['food'] ?? '';
+            $people = intval($reservation['people'] ?? 1);
+            $verified = isset($reservation['verified']) && ($reservation['verified'] === true || $reservation['verified'] === 'true' || $reservation['verified'] === 1);
+            
+            // sales-dataに追加（直接関数を呼び出す）
+            addReservationToSales($date, $food, $people, $verified);
+        }
     }
     
     write_json($file, $data);

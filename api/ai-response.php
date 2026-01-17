@@ -281,14 +281,32 @@ function isProductionEnvironment() {
 
 // Ollama APIを呼び出し
 function callOllamaAPI($userMessage, $history = []) {
+    // アレルギー情報を読み込む
+    $dataDir = __DIR__ . '/../data';
+    $allergiesData = readJsonSafe($dataDir . '/allergies.json');
+    $allergies = $allergiesData['allergies'] ?? [];
+    
+    // アレルギー情報をテキスト形式に変換
+    $allergyInfoText = '';
+    if (!empty($allergies)) {
+        $allergyInfoText = "\n\n【アレルギー情報】\n";
+        foreach ($allergies as $item) {
+            $allergenList = implode('、', $item['allergens']);
+            $allergyInfoText .= "- {$item['menu']}：{$allergenList}\n";
+        }
+        $allergyInfoText .= "\n※アレルギーに関する質問には、この情報を基に正確に回答してください。";
+    }
+    
     // より自然な会話を生成するシステムプロンプト
     $systemPrompt = <<<EOD
 あなたは親切で会話的、論理的に説明できる学校食堂のAIアシスタントです。ChatGPTやCopilotのような自然で流暢な会話を心がけてください。
 
 主な役割：
 - メニュー、営業時間、予約について質問に答える
+- アレルギー情報について質問に答える（アレルギー情報は以下を参照）
 - 学習のお手伝いとして数学、理科、英語などの教育関連の質問にも親切に答える
 - 一般的な質問や雑談にも自然に対応する
+{$allergyInfoText}
 
 回答のスタイル：
 - 自然で流暢な会話を心がける（ChatGPTやCopilotのような感じで）
@@ -1374,6 +1392,10 @@ function answerFromCafeteriaData($userMessage) {
     if ($totalCount >= 30) $congestion = '非常に混雑';
     else if ($totalCount >= 15) $congestion = 'やや混雑';
 
+    // アレルギー情報
+    $allergiesData = readJsonSafe($dataDir . '/allergies.json');
+    $allergies = $allergiesData['allergies'] ?? [];
+
     // ルール: 質問に応じて決定的返答（より自然な会話形式で）
     if (mb_strpos($msg, '定食') !== false || mb_strpos($msg, 'メニュー') !== false) {
         $menuFood = $todayMenu['food'] ?? '未設定';
@@ -1408,17 +1430,31 @@ function answerFromCafeteriaData($userMessage) {
 
     if (mb_strpos($msg, '予約時間') !== false || mb_strpos($msg, 'いつ予約') !== false || mb_strpos($msg, '予約可能') !== false) {
         if (!empty($reservationTimes) && ($reservationTimes['enabled'] ?? false)) {
-            $startTime = $reservationTimes['startTime'] ?? '未設定';
-            $endTime = $reservationTimes['endTime'] ?? '未設定';
-            $message = $reservationTimes['message'] ?? '';
-            $messageText = $message ? "\n\n補足: {$message}" : '';
+            // 後方互換性: 古い形式を新しい形式に変換
+            $timeSlots = [];
+            if (isset($reservationTimes['timeSlots']) && is_array($reservationTimes['timeSlots'])) {
+                $timeSlots = $reservationTimes['timeSlots'];
+            } elseif (isset($reservationTimes['startTime']) && isset($reservationTimes['endTime'])) {
+                $timeSlots = [
+                    ['startTime' => $reservationTimes['startTime'], 'endTime' => $reservationTimes['endTime']]
+                ];
+            }
             
-            $responses = [
-                "予約可能時間は{$startTime}から{$endTime}までです。{$messageText}",
-                "予約は{$startTime}から{$endTime}まで受け付けています。{$messageText}",
-                "予約可能時間は{$startTime}〜{$endTime}です。{$messageText}"
-            ];
-            return $responses[array_rand($responses)];
+            if (!empty($timeSlots)) {
+                $timeStrings = array_map(function($slot) {
+                    return "{$slot['startTime']}〜{$slot['endTime']}";
+                }, $timeSlots);
+                $timeList = implode('、', $timeStrings);
+                $message = $reservationTimes['message'] ?? '';
+                $messageText = $message ? "\n\n補足: {$message}" : '';
+                
+                $responses = [
+                    "予約可能時間は以下の通りです：\n\n{$timeList}{$messageText}",
+                    "予約は以下の時間帯で受け付けています：\n\n{$timeList}{$messageText}",
+                    "予約可能時間：\n\n{$timeList}{$messageText}"
+                ];
+                return $responses[array_rand($responses)];
+            }
         }
         $responses = [
             "予約時間の制限は現在ありません。いつでも予約可能です。",
@@ -1433,6 +1469,83 @@ function answerFromCafeteriaData($userMessage) {
             "現在の予約人数は{$totalCount}人です。\n\n混雑予測: {$congestion}",
             "予約人数は{$totalCount}人となっています。\n\n混雑予測: {$congestion}",
             "現在{$totalCount}人の予約があります。\n\n混雑予測: {$congestion}"
+        ];
+        return $responses[array_rand($responses)];
+    }
+
+    // アレルギー関連の質問
+    if (mb_strpos($msg, 'アレルギー') !== false || mb_strpos($msg, 'アレルゲン') !== false) {
+        if (empty($allergies)) {
+            $responses = [
+                "申し訳ございませんが、現在アレルギー情報が登録されていません。\n\n詳しくはスタッフにお問い合わせください。",
+                "アレルギー情報は現在登録されていません。\n\n詳細については、スタッフまでお気軽にお問い合わせください。"
+            ];
+            return $responses[array_rand($responses)];
+        }
+
+        // 特定のメニューを聞かれているかチェック
+        $foundMenu = null;
+        foreach ($allergies as $item) {
+            if (mb_strpos($msg, $item['menu']) !== false) {
+                $foundMenu = $item;
+                break;
+            }
+        }
+
+        if ($foundMenu) {
+            $allergenList = implode('、', $foundMenu['allergens']);
+            $responses = [
+                "{$foundMenu['menu']}には以下のアレルギー物質が含まれています：\n\n{$allergenList}\n\n⚠️ アレルギーをお持ちの方は、予約時や来店時に必ずスタッフにお申し出ください。",
+                "{$foundMenu['menu']}のアレルギー物質は以下の通りです：\n\n{$allergenList}\n\n⚠️ アレルギーをお持ちの方は、必ずスタッフにご相談ください。"
+            ];
+            return $responses[array_rand($responses)];
+        }
+
+        // 特定のアレルゲンを聞かれているかチェック
+        $commonAllergens = ['小麦', '大豆', '乳', '卵', 'そば', 'エビ', 'カニ', '落花生'];
+        $foundAllergen = null;
+        foreach ($commonAllergens as $allergen) {
+            if (mb_strpos($msg, $allergen) !== false) {
+                $foundAllergen = $allergen;
+                break;
+            }
+        }
+
+        if ($foundAllergen) {
+            $menusWithAllergen = [];
+            foreach ($allergies as $item) {
+                if (in_array($foundAllergen, $item['allergens'])) {
+                    $menusWithAllergen[] = $item['menu'];
+                }
+            }
+
+            if (!empty($menusWithAllergen)) {
+                $menuList = implode('、', $menusWithAllergen);
+                $responses = [
+                    "{$foundAllergen}を含むメニューは以下の通りです：\n\n{$menuList}\n\n⚠️ アレルギーをお持ちの方は、予約時や来店時に必ずスタッフにお申し出ください。",
+                    "{$foundAllergen}が含まれているメニューは：\n\n{$menuList}\n\n⚠️ アレルギーをお持ちの方は、必ずスタッフにご相談ください。"
+                ];
+                return $responses[array_rand($responses)];
+            } else {
+                $responses = [
+                    "{$foundAllergen}を含むメニューは現在ありません。\n\nただし、調理環境により混入の可能性がありますので、アレルギーをお持ちの方は必ずスタッフにご相談ください。",
+                    "現在のメニューには{$foundAllergen}は含まれていません。\n\nただし、アレルギーをお持ちの方は、念のためスタッフにお問い合わせください。"
+                ];
+                return $responses[array_rand($responses)];
+            }
+        }
+
+        // 全体的なアレルギー情報を返す
+        $allergyInfo = "アレルギー情報一覧：\n\n";
+        foreach ($allergies as $item) {
+            $allergenList = implode('、', $item['allergens']);
+            $allergyInfo .= "・{$item['menu']}：{$allergenList}\n";
+        }
+        $allergyInfo .= "\n⚠️ アレルギーをお持ちの方は、予約時や来店時に必ずスタッフにお申し出ください。\n\n詳細は<a href=\"allergy.html\">アレルギー情報ページ</a>でもご確認いただけます。";
+
+        $responses = [
+            $allergyInfo,
+            "以下が各メニューのアレルギー情報です：\n\n" . $allergyInfo
         ];
         return $responses[array_rand($responses)];
     }

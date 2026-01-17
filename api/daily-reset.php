@@ -18,7 +18,7 @@ $today = date('Y-m-d');
 $menuFile = $dataDir . '/menu.json';
 $reservationsFile = $dataDir . '/reservations.json';
 $dailyMenuFile = $dataDir . '/daily-menu.json';
-$salesFile = $dataDir . '/sales.json';
+// $salesFile は月間レポート用の売上データを蓄積するため、リセットしません
 $lastResetFile = $dataDir . '/last-reset.json';
 
 // データディレクトリの作成
@@ -40,12 +40,15 @@ function writeJsonSafe($file, $data) {
 
 // 日次リセット処理
 function performDailyReset() {
-    global $dataDir, $today, $menuFile, $reservationsFile, $dailyMenuFile, $salesFile, $lastResetFile;
+    global $dataDir, $today, $menuFile, $reservationsFile, $dailyMenuFile, $lastResetFile;
     
     // 前日の予約データをアーカイブに保存（月間レポート用）
+    // 注意: 月間レポートの売上データ（sales.json）やアーカイブ（reservations-archive.json）は
+    // 蓄積データのため、リセットしません
     savePreviousDayReservations();
     
     // 予約データをクリア（今日の予約のみ残す）
+    // 注意: 前日の予約データは既にアーカイブに保存されているため、月間レポートには影響しません
     $reservations = readJsonSafe($reservationsFile);
     $todayReservations = array_filter($reservations, function($reservation) use ($today) {
         return isset($reservation['date']) && $reservation['date'] === $today;

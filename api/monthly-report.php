@@ -29,14 +29,11 @@ function readJsonSafe($file) {
 // 月間レポートを生成
 function generateMonthlyReport($year, $month) {
     $dataDir = __DIR__ . '/../data';
-    $reservationsFile = $dataDir . '/reservations.json';
-    $archiveFile = $dataDir . '/reservations-archive.json';
+    $salesDataFile = $dataDir . '/sales-data.json';
     $holidaysFile = $dataDir . '/holidays.json';
     
-    // 予約データを読み込み（現在の予約 + アーカイブ）
-    $currentReservations = readJsonSafe($reservationsFile);
-    $archivedReservations = readJsonSafe($archiveFile);
-    $allReservations = array_merge($archivedReservations, $currentReservations);
+    // 売上データを読み込み（集計済みデータ）
+    $salesData = readJsonSafe($salesDataFile);
     
     // 休業日データを読み込み
     $allHolidays = readJsonSafe($holidaysFile);
@@ -98,15 +95,14 @@ function generateMonthlyReport($year, $month) {
         }
     }
     
-    // 指定された月の予約を抽出
-    $monthReservations = [];
-    foreach ($allReservations as $reservation) {
-        $reservationDate = $reservation['date'] ?? '';
-        $reservationYear = intval(substr($reservationDate, 0, 4));
-        $reservationMonth = intval(substr($reservationDate, 5, 2));
+    // 指定された月の売上データを抽出
+    $monthSalesData = [];
+    foreach ($salesData as $date => $dayData) {
+        $dateYear = intval(substr($date, 0, 4));
+        $dateMonth = intval(substr($date, 5, 2));
         
-        if ($reservationYear === $year && $reservationMonth === $month) {
-            $monthReservations[] = $reservation;
+        if ($dateYear === $year && $dateMonth === $month) {
+            $monthSalesData[$date] = $dayData;
         }
     }
     
@@ -129,58 +125,30 @@ function generateMonthlyReport($year, $month) {
     // 日別データを初期化
     $dailyData = [];
     
-    // 予約データを集計
-    foreach ($monthReservations as $reservation) {
-        $date = $reservation['date'] ?? '';
-        $people = intval($reservation['people'] ?? 1); // 予約人数
-        $food = $reservation['food'] ?? '';
-        $time = $reservation['time'] ?? '';
-        $verified = isset($reservation['verified']) && ($reservation['verified'] === true || $reservation['verified'] === 'true' || $reservation['verified'] === 1);
+    // 売上データを集計
+    foreach ($monthSalesData as $date => $dayData) {
+        $reservations = intval($dayData['reservations'] ?? 0);
+        $people = intval($dayData['people'] ?? 0);
+        $menuSales = $dayData['menuSales'] ?? [];
         
-        // 日別データを初期化（まだ存在しない場合）
-        if (!isset($dailyData[$date])) {
-            $dailyData[$date] = [
-                'date' => $date,
-                'reservations' => 0, // 予約人数の合計
-                'people' => 0, // 認証済み人数
-                'menuSales' => [] // 日別メニュー別売上
-            ];
-        }
+        // 日別データを設定
+        $dailyData[$date] = [
+            'date' => $date,
+            'reservations' => $reservations,
+            'people' => $people,
+            'menuSales' => $menuSales
+        ];
         
-        // 予約人数を加算（予約数）
-        $dailyData[$date]['reservations'] += $people;
-        $report['totalReservations'] += $people;
+        // 合計を加算
+        $report['totalReservations'] += $reservations;
+        $report['totalPeople'] += $people;
         
-        // 認証済みの場合のみ来客数に加算
-        if ($verified) {
-            $dailyData[$date]['people'] += $people;
-            $report['totalPeople'] += $people;
-            
-            // 日別メニュー別売上を集計（認証済みのみ）
-            if ($food) {
-                if (!isset($dailyData[$date]['menuSales'][$food])) {
-                    $dailyData[$date]['menuSales'][$food] = 0;
-                }
-                $dailyData[$date]['menuSales'][$food] += $people;
+        // メニュー別売上を集計
+        foreach ($menuSales as $menu => $quantity) {
+            if (!isset($report['menuSales'][$menu])) {
+                $report['menuSales'][$menu] = 0;
             }
-        }
-        
-        // メニュー別売上を集計（認証済みのみ）
-        if ($verified && $food) {
-            if (!isset($report['menuSales'][$food])) {
-                $report['menuSales'][$food] = 0;
-            }
-            $report['menuSales'][$food] += $people;
-        }
-        
-        // 時間帯別売上を集計（認証済みのみ）
-        if ($verified && $time) {
-            // 時間帯を30分単位でグループ化（例: 11:00-11:30, 11:30-12:00）
-            $timeSlot = substr($time, 0, 5); // HH:MM形式
-            if (!isset($report['timeSlotSales'][$timeSlot])) {
-                $report['timeSlotSales'][$timeSlot] = 0;
-            }
-            $report['timeSlotSales'][$timeSlot] += $people;
+            $report['menuSales'][$menu] += $quantity;
         }
     }
     

@@ -19,11 +19,12 @@ if (!is_dir($dataDir)) {
 }
 
 if (!file_exists($file)) {
-    // デフォルトの予約時間設定
+    // デフォルトの予約時間設定（複数時間帯対応）
     $defaultSettings = [
         'enabled' => false,
-        'startTime' => '11:30',
-        'endTime' => '12:45',
+        'timeSlots' => [
+            ['startTime' => '11:30', 'endTime' => '12:45']
+        ],
         'message' => '予約時間: 11:30-12:45'
     ];
     file_put_contents($file, json_encode($defaultSettings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -42,7 +43,18 @@ function writeJsonSafe($file, $data) {
 
 switch ($_SERVER['REQUEST_METHOD']) {
     case 'GET':
-        echo json_encode(readJsonSafe($file), JSON_UNESCAPED_UNICODE);
+        $data = readJsonSafe($file);
+        // 後方互換性: 古い形式（startTime/endTime）を新しい形式（timeSlots）に変換
+        if (isset($data['startTime']) && isset($data['endTime']) && !isset($data['timeSlots'])) {
+            $data['timeSlots'] = [
+                ['startTime' => $data['startTime'], 'endTime' => $data['endTime']]
+            ];
+            unset($data['startTime']);
+            unset($data['endTime']);
+            // 変換したデータを保存
+            writeJsonSafe($file, $data);
+        }
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
         break;
         
     case 'POST':
@@ -53,19 +65,47 @@ switch ($_SERVER['REQUEST_METHOD']) {
             break;
         }
         
-        // 必要なフィールドをチェック
-        $requiredFields = ['startTime', 'endTime', 'enabled'];
-        foreach ($requiredFields as $field) {
-            if (!isset($input[$field])) {
+        // 後方互換性: 古い形式（startTime/endTime）を新しい形式（timeSlots）に変換
+        if (isset($input['startTime']) && isset($input['endTime']) && !isset($input['timeSlots'])) {
+            $input['timeSlots'] = [
+                ['startTime' => $input['startTime'], 'endTime' => $input['endTime']]
+            ];
+            unset($input['startTime']);
+            unset($input['endTime']);
+        }
+        
+        // 新しい形式のバリデーション
+        if (!isset($input['timeSlots']) || !is_array($input['timeSlots']) || empty($input['timeSlots'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'timeSlots配列が必要です'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        
+        // 各時間帯のバリデーション
+        foreach ($input['timeSlots'] as $index => $slot) {
+            if (!isset($slot['startTime']) || !isset($slot['endTime'])) {
                 http_response_code(400);
-                echo json_encode(['error' => "Missing required field: $field"], JSON_UNESCAPED_UNICODE);
+                echo json_encode(['error' => "timeSlots[$index]にstartTimeとendTimeが必要です"], JSON_UNESCAPED_UNICODE);
+                break 2;
+            }
+            if ($slot['startTime'] >= $slot['endTime']) {
+                http_response_code(400);
+                echo json_encode(['error' => "timeSlots[$index]の開始時間は終了時間より早く設定してください"], JSON_UNESCAPED_UNICODE);
                 break 2;
             }
         }
         
-        // メッセージが設定されていない場合はデフォルトを生成
+        // enabledが設定されていない場合はtrueに設定
+        if (!isset($input['enabled'])) {
+            $input['enabled'] = true;
+        }
+        
+        // メッセージが設定されていない場合は自動生成
         if (!isset($input['message']) || empty($input['message'])) {
-            $input['message'] = "予約時間: {$input['startTime']}-{$input['endTime']}";
+            $timeStrings = array_map(function($slot) {
+                return "{$slot['startTime']}-{$slot['endTime']}";
+            }, $input['timeSlots']);
+            $input['message'] = '予約時間: ' . implode(', ', $timeStrings);
         }
         
         writeJsonSafe($file, $input);
