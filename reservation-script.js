@@ -23,21 +23,39 @@ async function checkReservationTime() {
 
         const now = new Date();
         const currentTime = now.toTimeString().slice(0, 5); // HH:MM形式
-        const startTime = times.startTime;
-        const endTime = times.endTime;
+        
+        // 後方互換性: 古い形式を新しい形式に変換
+        let timeSlots = [];
+        if (times.timeSlots && Array.isArray(times.timeSlots)) {
+            timeSlots = times.timeSlots;
+        } else if (times.startTime && times.endTime) {
+            timeSlots = [{ startTime: times.startTime, endTime: times.endTime }];
+        }
 
-        const isWithinTime = currentTime >= startTime && currentTime <= endTime;
+        // 複数の時間帯をチェック
+        let isWithinTime = false;
+        let matchedSlot = null;
+        for (const slot of timeSlots) {
+            if (currentTime >= slot.startTime && currentTime <= slot.endTime) {
+                isWithinTime = true;
+                matchedSlot = slot;
+                break;
+            }
+        }
+
+        // 時間帯の文字列を生成
+        const timeStrings = timeSlots.map(slot => `${slot.startTime} - ${slot.endTime}`).join(', ');
 
         if (isWithinTime) {
             timeDisplay.innerHTML = `
                 <p style="color: #28a745;">✅ 現在予約可能です</p>
-                <p style="font-size: 14px; color: #6c757d;">予約時間: ${startTime} - ${endTime}</p>
+                <p style="font-size: 14px; color: #6c757d;">予約時間: ${timeStrings}</p>
                 <p style="font-size: 14px; color: #6c757d;">現在時刻: ${currentTime}</p>
             `;
         } else {
             timeDisplay.innerHTML = `
                 <p style="color: #dc3545;">❌ 現在は予約時間外です</p>
-                <p style="font-size: 14px; color: #6c757d;">予約時間: ${startTime} - ${endTime}</p>
+                <p style="font-size: 14px; color: #6c757d;">予約時間: ${timeStrings}</p>
                 <p style="font-size: 14px; color: #6c757d;">現在時刻: ${currentTime}</p>
                 <p style="font-size: 14px; color: #6c757d;">${times.message || ''}</p>
             `;

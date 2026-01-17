@@ -161,6 +161,8 @@
       <div class="tab-navigation">
         <button class="tab-button active" onclick="switchTab('basic', this)">⚙️ 基本設定</button>
         <button class="tab-button" onclick="switchTab('data', this)">📝 予約確認</button>
+        <button class="tab-button" onclick="switchTab('shifts', this)">📅 シフト表</button>
+        <button class="tab-button" onclick="switchTab('ai-advice', this)">🤖 AIアドバイス</button>
         <button class="tab-button" onclick="switchTab('system', this)">🔄 システム管理</button>
         <button class="tab-button" onclick="switchTab('other', this)">🔗 URL</button>
       </div>
@@ -276,6 +278,37 @@
           </div>
         </section>
 
+        <!-- 🔹 行事・お知らせ設定 -->
+        <section class="admin-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <h3>📢 行事・お知らせ設定</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <div class="grid-2">
+                <div class="admin-card">
+                  <h3>行事・お知らせを追加</h3>
+                  <div class="form-group">
+                    <label for="event-date">日付:</label>
+                    <input type="date" id="event-date" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="event-message">内容:</label>
+                    <input type="text" id="event-message" placeholder="例: 文化祭、特別メニュー提供日" required>
+                  </div>
+                  <button onclick="addEvent()" class="btn btn-primary">行事・お知らせを追加</button>
+                </div>
+
+                <div class="admin-card">
+                  <h3>現在の行事・お知らせ一覧</h3>
+                  <div id="events-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- 🔹 予約時間設定 -->
         <section class="admin-section">
           <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -287,17 +320,13 @@
               <div class="grid-2">
                 <div class="admin-card">
                   <h3>予約可能時間を設定</h3>
-                  <div class="form-group">
-                    <label for="reservation-start-time">開始時間:</label>
-                    <input type="time" id="reservation-start-time" required>
+                  <div id="time-slots-container">
+                    <!-- 時間帯が動的に追加される -->
                   </div>
-                  <div class="form-group">
-                    <label for="reservation-end-time">終了時間:</label>
-                    <input type="time" id="reservation-end-time" required>
-                  </div>
-                  <div class="form-group">
+                  <button onclick="addTimeSlot()" class="btn btn-secondary" style="margin-top: 10px;">+ 時間帯を追加</button>
+                  <div class="form-group" style="margin-top: 15px;">
                     <label for="reservation-message">表示メッセージ:</label>
-                    <input type="text" id="reservation-message" placeholder="例: 予約時間: 11:30-12:45">
+                    <input type="text" id="reservation-message" placeholder="例: 予約時間: 11:30-12:45, 17:00-18:30">
                   </div>
                   <p style="color: #666; font-size: 14px; margin-top: -10px; margin-bottom: 10px;">
                     ※ 予約時間を設定すると、自動的に有効になります
@@ -309,6 +338,39 @@
                   <h3>現在の予約時間設定</h3>
                   <div id="reservation-times-display"></div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- シフト表タブ -->
+      <div id="tab-shifts" class="tab-content">
+        <section class="admin-section">
+          <div class="accordion-header active" onclick="toggleAccordion(this)">
+            <h3>📅 シフト表管理</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content active">
+            <div class="accordion-body">
+              <div class="admin-card">
+                <h3>シフト表</h3>
+                <div class="form-group">
+                  <label for="shift-display-month">表示月:</label>
+                  <input type="month" id="shift-display-month" onchange="loadShifts()">
+                </div>
+                <div class="form-group">
+                  <label for="shift-employee-name">従業員名を追加:</label>
+                  <div style="display: flex; gap: 10px;">
+                    <input type="text" id="shift-employee-name" placeholder="例: 田中太郎" style="flex: 1;">
+                    <button onclick="addEmployeeName()" class="btn btn-secondary">追加</button>
+                  </div>
+                </div>
+                <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                  💡 シフト表のセルをクリックすると記号を選択できます（〇=出勤、X=休み、受=受付、H=残業、数字=その他）
+                </p>
+                <div id="shifts-list"></div>
               </div>
             </div>
           </div>
@@ -464,6 +526,62 @@
                   <button onclick="performAIAnalysis()" class="btn btn-primary">🤖 AI分析を実行</button>
                 </div>
                 <div id="ai-analysis-display"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- AIアドバイスタブ -->
+      <div id="tab-ai-advice" class="tab-content">
+        <section class="admin-section">
+          <div class="accordion-header active" onclick="toggleAccordion(this)">
+            <h3>🤖 AIアドバイス</h3>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div class="accordion-content active">
+            <div class="accordion-body">
+              <div class="grid-2">
+                <div class="admin-card">
+                  <h3>📊 来客数データのアップロード</h3>
+                  <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                    ※ エクセルファイル（.xlsx）をアップロードして、来客数予測の精度を向上させます。<br>
+                    ※ エクセルファイルの1列目に日付、2列目に来客数を入力してください。
+                  </p>
+                  <div class="form-group">
+                    <label for="excel-file">エクセルファイルを選択:</label>
+                    <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" style="margin-top: 5px;">
+                  </div>
+                  <button onclick="uploadExcelFile()" class="btn btn-primary">ファイルをアップロード</button>
+                  <div id="excel-upload-status" style="margin-top: 10px;"></div>
+                </div>
+
+                <div class="admin-card">
+                  <h3>📈 現在の来客数データ</h3>
+                  <div id="attendance-data-display"></div>
+                </div>
+              </div>
+
+              <div class="admin-card" style="margin-top: 20px;">
+                <h3>🍽️ 今日のおすすめ定食</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                  AIが今日の曜日と予算（400円程度）に基づいて、おすすめの定食メニューを提案します。
+                </p>
+                <button onclick="getMenuAdvice()" class="btn btn-primary">定食メニューを提案</button>
+                <div id="menu-advice-display" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; min-height: 100px;">
+                  <p style="color: #6c757d;">「定食メニューを提案」ボタンをクリックしてください</p>
+                </div>
+              </div>
+
+              <div class="admin-card" style="margin-top: 20px;">
+                <h3>👥 今日の来客数予測</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                  AIが過去の来客数データを分析して、今日の来客数を予測します。
+                </p>
+                <button onclick="getAttendancePrediction()" class="btn btn-primary">来客数を予測</button>
+                <div id="attendance-prediction-display" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; min-height: 100px;">
+                  <p style="color: #6c757d;">「来客数を予測」ボタンをクリックしてください</p>
+                </div>
               </div>
             </div>
           </div>
@@ -729,6 +847,7 @@
       const calendar = document.getElementById("calendar");
       const holidays = await apiGet('holidays.php');
       const dailyMenus = await apiGet('daily-menu.php');
+      const events = await apiGet('events.php');
       const today = new Date();
       const year = today.getFullYear();
       const month = today.getMonth(); // 0始まり
@@ -758,12 +877,33 @@
         const div = document.createElement("div");
         const holiday = holidays.find(h => h.date === dateStr);
         const dailyMenu = dailyMenus.find(m => m.date === dateStr);
+        const event = events.find(e => e.date === dateStr);
         const isHoliday = !!holiday;
-        div.textContent = day;
+
+        let content = `${day}`;
+        let classes = [];
+
         if (isHoliday) {
-          div.classList.add("holiday");
+          classes.push("holiday");
+          if (holiday && holiday.reason) {
+            content += `<br><small>${holiday.reason}</small>`;
+          }
         } else if (dailyMenu) {
-          div.innerHTML = `${day}<br><small>${dailyMenu.food}</small>`;
+          content += `<br><small>${dailyMenu.food}</small>`;
+        }
+
+        // 行事・お知らせがある場合は追加表示
+        if (event) {
+          if (isHoliday || dailyMenu) {
+            content += `<br><small style="color: #007bff;">📢 ${event.message}</small>`;
+          } else {
+            content = `${day}<br><small style="color: #007bff;">📢 ${event.message}</small>`;
+          }
+        }
+
+        div.innerHTML = content;
+        if (classes.length > 0) {
+          div.className = classes.join(' ');
         }
         calendar.appendChild(div);
       }
@@ -823,6 +963,63 @@
       const filtered = dailyMenus.filter(m => m.date !== date);
       await apiPost('daily-menu.php', filtered);
       loadDailyMenus();
+      renderCalendar();
+    }
+
+    // === 行事・お知らせ管理 ===
+    async function addEvent() {
+      const date = document.getElementById("event-date").value;
+      const message = document.getElementById("event-message").value.trim();
+      if (!date || !message) return alert("日付と内容を入力してください。");
+
+      const events = await apiGet('events.php');
+
+      // 同じ日付の設定がある場合は更新、なければ追加
+      const existingIndex = events.findIndex(e => e.date === date);
+      if (existingIndex >= 0) {
+        events[existingIndex].message = message;
+      } else {
+        events.push({ date, message });
+      }
+
+      await apiPost('events.php', events);
+
+      document.getElementById("event-date").value = "";
+      document.getElementById("event-message").value = "";
+      loadEvents();
+      renderCalendar();
+    }
+
+    async function loadEvents() {
+      const events = await apiGet('events.php');
+      const list = document.getElementById("events-list");
+
+      if (!events || events.length === 0) {
+        list.innerHTML = "<p>行事・お知らせは登録されていません。</p>";
+        return;
+      }
+
+      // 日付順にソート
+      const sortedEvents = events.sort((a, b) => a.date.localeCompare(b.date));
+
+      list.innerHTML = sortedEvents.map(e => {
+        const div = document.createElement("div");
+        div.className = "menu-item";
+        div.innerHTML = `
+          <p>📅 ${e.date}　📢 ${e.message}</p>
+          <button onclick="deleteEvent('${e.date}')" class="btn btn-danger">削除</button>
+        `;
+        return div.outerHTML;
+      }).join('');
+    }
+
+    async function deleteEvent(date) {
+      if (!confirm('この行事・お知らせを削除しますか？')) return;
+
+      const events = await apiGet('events.php');
+      const filtered = events.filter(e => e.date !== date);
+      await apiPost('events.php', filtered);
+      loadEvents();
       renderCalendar();
     }
 
@@ -1006,24 +1203,75 @@
 
 
     // === 予約時間管理 ===
+    let timeSlotCounter = 0;
+
+    function addTimeSlot(startTime = '', endTime = '') {
+      const container = document.getElementById('time-slots-container');
+      const slotId = `time-slot-${timeSlotCounter++}`;
+      const slotDiv = document.createElement('div');
+      slotDiv.id = slotId;
+      slotDiv.className = 'time-slot-item';
+      slotDiv.style.cssText = 'margin-bottom: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;';
+      slotDiv.innerHTML = `
+        <div style="display: flex; gap: 10px; align-items: flex-end;">
+          <div class="form-group" style="flex: 1;">
+            <label>開始時間:</label>
+            <input type="time" class="slot-start-time" value="${startTime}" required>
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label>終了時間:</label>
+            <input type="time" class="slot-end-time" value="${endTime}" required>
+          </div>
+          <button onclick="removeTimeSlot('${slotId}')" class="btn btn-danger" style="margin-bottom: 0;">削除</button>
+        </div>
+      `;
+      container.appendChild(slotDiv);
+    }
+
+    function removeTimeSlot(slotId) {
+      const slot = document.getElementById(slotId);
+      if (slot) {
+        slot.remove();
+      }
+    }
+
     async function loadReservationTimes() {
       try {
         const times = await apiGet('reservation-times.php');
         const displayDiv = document.getElementById('reservation-times-display');
+        const container = document.getElementById('time-slots-container');
 
+        // 後方互換性: 古い形式を新しい形式に変換
+        let timeSlots = [];
         if (times) {
+          if (times.timeSlots && Array.isArray(times.timeSlots)) {
+            timeSlots = times.timeSlots;
+          } else if (times.startTime && times.endTime) {
+            timeSlots = [{ startTime: times.startTime, endTime: times.endTime }];
+          }
+        }
+
+        // 表示を更新
+        if (times && timeSlots.length > 0) {
+          const timeStrings = timeSlots.map(slot => `${slot.startTime} - ${slot.endTime}`).join(', ');
           displayDiv.innerHTML = `
             <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-              <p><strong>⏰ 予約可能時間:</strong> ${times.startTime} - ${times.endTime}</p>
+              <p><strong>⏰ 予約可能時間:</strong> ${timeStrings}</p>
               <p><strong>📝 状態:</strong> ${times.enabled ? '✅ 有効' : '❌ 無効'}</p>
-              <p><strong>💬 メッセージ:</strong> ${times.message}</p>
+              <p><strong>💬 メッセージ:</strong> ${times.message || ''}</p>
             </div>
           `;
 
           // フォームに現在の値を設定
-          document.getElementById('reservation-start-time').value = times.startTime;
-          document.getElementById('reservation-end-time').value = times.endTime;
-          document.getElementById('reservation-message').value = times.message;
+          container.innerHTML = '';
+          timeSlots.forEach(slot => {
+            addTimeSlot(slot.startTime || '', slot.endTime || '');
+          });
+          document.getElementById('reservation-message').value = times.message || '';
+        } else {
+          displayDiv.innerHTML = '<p style="color: #666;">予約時間が設定されていません</p>';
+          container.innerHTML = '';
+          addTimeSlot();
         }
       } catch (error) {
         console.error('予約時間設定の読み込みエラー:', error);
@@ -1033,26 +1281,40 @@
     }
 
     async function updateReservationTimes() {
-      const startTime = document.getElementById('reservation-start-time').value;
-      const endTime = document.getElementById('reservation-end-time').value;
+      const slotItems = document.querySelectorAll('.time-slot-item');
+      const timeSlots = [];
+
+      // 各時間帯を収集
+      for (const item of slotItems) {
+        const startTime = item.querySelector('.slot-start-time').value;
+        const endTime = item.querySelector('.slot-end-time').value;
+
+        if (!startTime || !endTime) {
+          alert('すべての時間帯の開始時間と終了時間を入力してください。');
+          return;
+        }
+
+        if (startTime >= endTime) {
+          alert('開始時間は終了時間より早く設定してください。');
+          return;
+        }
+
+        timeSlots.push({ startTime, endTime });
+      }
+
+      if (timeSlots.length === 0) {
+        alert('少なくとも1つの時間帯を設定してください。');
+        return;
+      }
+
       const message = document.getElementById('reservation-message').value.trim();
-
-      if (!startTime || !endTime) {
-        alert('開始時間と終了時間を入力してください。');
-        return;
-      }
-
-      if (startTime >= endTime) {
-        alert('開始時間は終了時間より早く設定してください。');
-        return;
-      }
+      const timeStrings = timeSlots.map(slot => `${slot.startTime}-${slot.endTime}`).join(', ');
 
       try {
         const data = {
-          startTime: startTime,
-          endTime: endTime,
+          timeSlots: timeSlots,
           enabled: true, // 設定されたら自動的に有効
-          message: message || `予約時間: ${startTime}-${endTime}`
+          message: message || `予約時間: ${timeStrings}`
         };
 
         await apiPost('reservation-times.php', data);
@@ -1060,7 +1322,7 @@
         loadReservationTimes();
       } catch (error) {
         console.error('予約時間設定の更新エラー:', error);
-        alert('予約時間設定の更新に失敗しました。');
+        alert('予約時間設定の更新に失敗しました: ' + (error.message || ''));
       }
     }
 
@@ -1168,14 +1430,14 @@
 
     function generateMenuSalesTable(menuSales) {
       const menuEntries = Object.entries(menuSales);
-      
+
       if (menuEntries.length === 0) {
         return '<p>メニュー別売上データがありません。</p>';
       }
-      
+
       // 売上数でソート（降順）
       menuEntries.sort((a, b) => b[1] - a[1]);
-      
+
       return `
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
           <tr style="background-color: #f8f9fa;">
@@ -1212,18 +1474,18 @@
               <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">メニュー別売上</th>
             </tr>
             ${dailyData.map(day => {
-              const menuSales = day.menuSales || {};
-              let menuSalesText = '';
-              if (Object.keys(menuSales).length > 0) {
-                const menuEntries = Object.entries(menuSales)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([menu, qty]) => `<span style="display: inline-block; margin-right: 10px; margin-bottom: 4px; padding: 3px 8px; background-color: #e3f2fd; border-radius: 4px; font-size: 12px;"><strong>${menu}</strong>: ${qty}個</span>`);
-                menuSalesText = menuEntries.join('');
-              } else {
-                menuSalesText = '<span style="color: #999;">データなし</span>';
-              }
-              
-              return `
+        const menuSales = day.menuSales || {};
+        let menuSalesText = '';
+        if (Object.keys(menuSales).length > 0) {
+          const menuEntries = Object.entries(menuSales)
+            .sort((a, b) => b[1] - a[1])
+            .map(([menu, qty]) => `<span style="display: inline-block; margin-right: 10px; margin-bottom: 4px; padding: 3px 8px; background-color: #e3f2fd; border-radius: 4px; font-size: 12px;"><strong>${menu}</strong>: ${qty}個</span>`);
+          menuSalesText = menuEntries.join('');
+        } else {
+          menuSalesText = '<span style="color: #999;">データなし</span>';
+        }
+
+        return `
               <tr>
                 <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${day.date}</td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${day.reservations}人</td>
@@ -1231,7 +1493,7 @@
                 <td style="border: 1px solid #ddd; padding: 8px; line-height: 1.8;">${menuSalesText}</td>
               </tr>
             `;
-            }).join('')}
+      }).join('')}
           </table>
         </div>
       ` : '<p>データがありません。</p>';
@@ -1426,6 +1688,574 @@
       }
     }
 
+    // === シフト表管理 ===
+    async function addShift() {
+      const date = document.getElementById("shift-date").value;
+      const name = document.getElementById("shift-name").value.trim();
+      const startTime = document.getElementById("shift-start-time").value;
+      const endTime = document.getElementById("shift-end-time").value;
+      const role = document.getElementById("shift-role").value.trim();
+
+      if (!date || !name || !startTime || !endTime) {
+        return alert("日付、担当者名、開始時間、終了時間を入力してください。");
+      }
+
+      if (startTime >= endTime) {
+        return alert("開始時間は終了時間より早く設定してください。");
+      }
+
+      const shifts = await apiGet('shifts.php');
+
+      const newShift = {
+        id: Date.now(),
+        date: date,
+        name: name,
+        startTime: startTime,
+        endTime: endTime,
+        role: role || ''
+      };
+
+      shifts.push(newShift);
+      await apiPost('shifts.php', shifts);
+
+      document.getElementById("shift-date").value = "";
+      document.getElementById("shift-name").value = "";
+      document.getElementById("shift-start-time").value = "";
+      document.getElementById("shift-end-time").value = "";
+      document.getElementById("shift-role").value = "";
+      loadShifts();
+    }
+
+    // 従業員名リストを管理
+    let employeeNamesList = [];
+
+    async function loadEmployeeNames() {
+      const shifts = await apiGet('shifts.php');
+      const existingNames = [...new Set(shifts.map(s => s.name))];
+
+      // ローカルストレージから従業員名リストを取得
+      const storedNames = localStorage.getItem('shift_employee_names');
+      if (storedNames) {
+        const parsedNames = JSON.parse(storedNames);
+        employeeNamesList = [...new Set([...parsedNames, ...existingNames])].sort();
+      } else {
+        employeeNamesList = existingNames.sort();
+      }
+    }
+
+    async function addEmployeeName() {
+      const nameInput = document.getElementById("shift-employee-name");
+      const name = nameInput.value.trim();
+
+      if (!name) {
+        return alert("従業員名を入力してください。");
+      }
+
+      if (employeeNamesList.includes(name)) {
+        return alert("この従業員名は既に登録されています。");
+      }
+
+      employeeNamesList.push(name);
+      employeeNamesList.sort();
+
+      // ローカルストレージに保存
+      localStorage.setItem('shift_employee_names', JSON.stringify(employeeNamesList));
+
+      nameInput.value = "";
+      loadShifts();
+    }
+
+    async function loadShifts() {
+      await loadEmployeeNames();
+      const shifts = await apiGet('shifts.php');
+      const list = document.getElementById("shifts-list");
+      const monthInput = document.getElementById("shift-display-month");
+
+      // 現在の月を設定（初回のみ）
+      if (!monthInput.value) {
+        const today = new Date();
+        monthInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      const selectedMonth = monthInput.value;
+      const [year, month] = selectedMonth.split('-').map(Number);
+
+      // 月の日数を取得
+      const daysInMonth = new Date(year, month, 0).getDate();
+
+      // 選択された月のシフトをフィルタリング
+      const monthShifts = shifts.filter(shift => {
+        const shiftDate = new Date(shift.date);
+        return shiftDate.getFullYear() === year && shiftDate.getMonth() + 1 === month;
+      });
+
+      // 従業員名のリストを使用（シフトがない従業員も表示）
+      if (employeeNamesList.length === 0) {
+        list.innerHTML = `<p style="padding: 20px; text-align: center; color: #666;">従業員名を追加してください。従業員名を追加すると、シフト表が表示されます。</p>`;
+        return;
+      }
+
+      // 日付ごとのシフトを整理
+      const shiftsByDateAndName = {};
+      monthShifts.forEach(shift => {
+        const day = new Date(shift.date).getDate();
+        if (!shiftsByDateAndName[day]) {
+          shiftsByDateAndName[day] = {};
+        }
+        if (!shiftsByDateAndName[day][shift.name]) {
+          shiftsByDateAndName[day][shift.name] = [];
+        }
+        shiftsByDateAndName[day][shift.name].push(shift);
+      });
+
+      // 横の表形式で表示
+      let html = '<div style="overflow-x: auto; margin-top: 15px;">';
+      html += '<table style="border-collapse: collapse; font-size: 12px; min-width: 1200px;">';
+
+      // ヘッダー行1: 日付
+      html += '<tr style="background-color: #f0f0f0;">';
+      html += '<th style="border: 1px solid #ccc; padding: 8px; text-align: center; position: sticky; left: 0; background-color: #f0f0f0; z-index: 10;">氏名</th>';
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month - 1, day);
+        const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+        const isWeekend = dayOfWeek === '日' || dayOfWeek === '土';
+        html += `<th style="border: 1px solid #ccc; padding: 4px; text-align: center; min-width: 30px; ${isWeekend ? 'background-color: #fff5f5;' : ''}">${day}</th>`;
+      }
+      html += '<th style="border: 1px solid #ccc; padding: 8px; text-align: center; background-color: #e8f4f8;">合計<br>出勤日数</th>';
+      html += '<th style="border: 1px solid #ccc; padding: 8px; text-align: center; position: sticky; right: 0; background-color: #f0f0f0; z-index: 10;">操作</th>';
+      html += '</tr>';
+
+      // ヘッダー行2: 曜日
+      html += '<tr style="background-color: #f8f8f8;">';
+      html += '<th style="border: 1px solid #ccc; padding: 4px; text-align: center; position: sticky; left: 0; background-color: #f8f8f8; z-index: 10;"></th>';
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month - 1, day);
+        const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+        const isWeekend = dayOfWeek === '日' || dayOfWeek === '土';
+        html += `<th style="border: 1px solid #ccc; padding: 2px; text-align: center; font-size: 10px; ${isWeekend ? 'background-color: #fff5f5; color: #d00;' : ''}">${dayOfWeek}</th>`;
+      }
+      html += '<th style="border: 1px solid #ccc; padding: 4px; text-align: center; background-color: #e8f4f8;"></th>';
+      html += '<th style="border: 1px solid #ccc; padding: 4px; text-align: center; position: sticky; right: 0; background-color: #f8f8f8; z-index: 10;"></th>';
+      html += '</tr>';
+
+      // 従業員ごとの行
+      employeeNamesList.forEach((name, nameIndex) => {
+        let attendanceDays = 0;
+
+        // 通常シフト行
+        html += '<tr>';
+        html += `<td style="border: 1px solid #ccc; padding: 6px; text-align: left; position: sticky; left: 0; background-color: white; z-index: 5; font-weight: bold;">${escapeHtml(name)}<br><small style="color: #666;">通常</small></td>`;
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(year, month - 1, day);
+          const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+          const isWeekend = dayOfWeek === '日' || dayOfWeek === '土';
+          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+          const dayShifts = shiftsByDateAndName[day]?.[name] || [];
+          const normalShifts = dayShifts.filter(s => !s.symbol || (s.symbol !== 'H' && s.role !== 'H残業'));
+
+          let cellContent = '';
+          let currentSymbol = '';
+          if (normalShifts.length > 0) {
+            attendanceDays++;
+            const shift = normalShifts[0];
+            currentSymbol = shift.symbol || (shift.role || '〇');
+            cellContent = escapeHtml(currentSymbol);
+            if (normalShifts.length > 1) {
+              cellContent += `(${normalShifts.length})`;
+            }
+          }
+
+          html += `<td onclick="openShiftSymbolSelector('${escapeHtml(name)}', '${dateStr}', 'normal', ${day}, '${currentSymbol}')" style="border: 1px solid #ccc; padding: 4px; text-align: center; cursor: pointer; ${isWeekend ? 'background-color: #fff5f5;' : ''} min-height: 30px;" title="クリックして記号を選択">${cellContent || '&nbsp;'}</td>`;
+        }
+
+        html += `<td style="border: 1px solid #ccc; padding: 6px; text-align: center; background-color: #e8f4f8; font-weight: bold;">${attendanceDays}日</td>`;
+
+        // 操作列（最初の行のみ）
+        if (nameIndex === 0) {
+          html += `<td rowspan="${employeeNamesList.length * 2}" style="border: 1px solid #ccc; padding: 8px; text-align: center; position: sticky; right: 0; background-color: white; z-index: 5; vertical-align: top;">
+            <button onclick="deleteAllShiftsForEmployee('${escapeHtml(name)}', ${year}, ${month})" class="btn btn-danger" style="padding: 4px 8px; font-size: 11px; margin-bottom: 5px;">全削除</button>
+          </td>`;
+        }
+        html += '</tr>';
+
+        // H残業行（常に表示）
+        const hasOvertime = monthShifts.some(s => s.name === name && (s.symbol === 'H' || s.role === 'H残業'));
+        // 常にH残業行を表示
+        {
+          html += '<tr>';
+          html += `<td style="border: 1px solid #ccc; padding: 6px; text-align: left; position: sticky; left: 0; background-color: #fafafa; z-index: 5;"><small style="color: #666;">H残業</small></td>`;
+
+          for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month - 1, day);
+            const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+            const isWeekend = dayOfWeek === '日' || dayOfWeek === '土';
+
+            const dayShifts = shiftsByDateAndName[day]?.[name] || [];
+            const overtimeShifts = dayShifts.filter(s => s.symbol === 'H' || s.role === 'H残業');
+
+            let cellContent = '';
+            let currentSymbol = '';
+            if (overtimeShifts.length > 0) {
+              currentSymbol = 'H';
+              cellContent = 'H';
+              if (overtimeShifts.length > 1) {
+                cellContent += `(${overtimeShifts.length})`;
+              }
+            }
+
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            html += `<td onclick="openShiftSymbolSelector('${escapeHtml(name)}', '${dateStr}', 'overtime', ${day}, '${currentSymbol}')" style="border: 1px solid #ccc; padding: 4px; text-align: center; background-color: #fafafa; cursor: pointer; ${isWeekend ? 'background-color: #fff5f5;' : ''} min-height: 30px;" title="クリックして記号を選択">${cellContent || '&nbsp;'}</td>`;
+          }
+
+          html += '<td style="border: 1px solid #ccc; padding: 6px; text-align: center; background-color: #e8f4f8;"></td>';
+          html += '</tr>';
+        }
+      });
+
+      html += '</table></div>';
+      list.innerHTML = html;
+    }
+
+    // 記号選択ポップアップを表示
+    function openShiftSymbolSelector(name, date, type, day, currentSymbol) {
+      const symbols = [
+        { value: '〇', label: '〇（出勤）' },
+        { value: 'X', label: 'X（休み）' },
+        { value: '受', label: '受（受付）' },
+        { value: '1', label: '1' },
+        { value: '2', label: '2' },
+        { value: '3', label: '3' },
+        { value: 'H', label: 'H（残業）', onlyOvertime: true }
+      ];
+
+      // 通常シフト行の場合はHを除外
+      const availableSymbols = type === 'normal'
+        ? symbols.filter(s => !s.onlyOvertime)
+        : symbols;
+
+      let optionsHtml = availableSymbols.map(s => {
+        const selected = currentSymbol === s.value ? '✓' : '';
+        return `<div onclick="selectShiftSymbol('${escapeHtml(name)}', '${date}', '${type}', ${day}, '${s.value}')" style="padding: 10px; cursor: pointer; border: 1px solid #ddd; margin: 2px; border-radius: 4px; display: inline-block; min-width: 60px; text-align: center; ${selected ? 'background-color: #e3f2fd; font-weight: bold;' : ''}" onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='${selected ? '#e3f2fd' : 'white'}'">${s.value} ${selected}</div>`;
+      }).join('');
+
+      optionsHtml += `<div onclick="selectShiftSymbol('${escapeHtml(name)}', '${date}', '${type}', ${day}, '')" style="padding: 10px; cursor: pointer; border: 1px solid #ddd; margin: 2px; border-radius: 4px; display: inline-block; min-width: 60px; text-align: center; ${!currentSymbol ? 'background-color: #e3f2fd; font-weight: bold;' : ''}" onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='${!currentSymbol ? '#e3f2fd' : 'white'}'">削除</div>`;
+
+      const popup = document.createElement('div');
+      popup.id = 'shift-symbol-popup';
+      popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid #007bff; border-radius: 8px; padding: 20px; z-index: 10000; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 500px;';
+      popup.innerHTML = `
+        <h3 style="margin-top: 0;">記号を選択</h3>
+        <p style="margin-bottom: 15px; color: #666;">${escapeHtml(name)} - ${date}</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px;">
+          ${optionsHtml}
+        </div>
+        <button onclick="closeShiftSymbolPopup()" class="btn btn-secondary" style="width: 100%;">キャンセル</button>
+      `;
+
+      const overlay = document.createElement('div');
+      overlay.id = 'shift-symbol-overlay';
+      overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;';
+      overlay.onclick = closeShiftSymbolPopup;
+
+      document.body.appendChild(overlay);
+      document.body.appendChild(popup);
+    }
+
+    function closeShiftSymbolPopup() {
+      const popup = document.getElementById('shift-symbol-popup');
+      const overlay = document.getElementById('shift-symbol-overlay');
+      if (popup) popup.remove();
+      if (overlay) overlay.remove();
+    }
+
+    async function selectShiftSymbol(name, date, type, day, symbol) {
+      closeShiftSymbolPopup();
+
+      const shifts = await apiGet('shifts.php');
+      const monthInput = document.getElementById("shift-display-month");
+      const [year, month] = monthInput.value.split('-').map(Number);
+
+      // 既存のシフトを削除（同じ日付、名前、タイプのもの）
+      const filteredShifts = shifts.filter(shift => {
+        const shiftDate = new Date(shift.date);
+        const shiftDay = shiftDate.getDate();
+        const shiftYear = shiftDate.getFullYear();
+        const shiftMonth = shiftDate.getMonth() + 1;
+
+        if (shift.name !== name || shiftYear !== year || shiftMonth !== month || shiftDay !== day) {
+          return true;
+        }
+
+        // タイプに応じてフィルタリング
+        if (type === 'normal') {
+          return shift.symbol === 'H' || shift.role === 'H残業';
+        } else {
+          return shift.symbol !== 'H' && shift.role !== 'H残業';
+        }
+      });
+
+      // 新しいシフトを追加（記号が選択されている場合）
+      if (symbol) {
+        const newShift = {
+          id: Date.now(),
+          date: date,
+          name: name,
+          startTime: '09:00',
+          endTime: '18:00',
+          symbol: symbol,
+          role: symbol === 'H' ? 'H残業' : (symbol === '受' ? '受付' : '')
+        };
+        filteredShifts.push(newShift);
+      }
+
+      await apiPost('shifts.php', filteredShifts);
+      loadShifts();
+    }
+
+    async function deleteAllShiftsForEmployee(name, year, month) {
+      if (!confirm(`「${name}」さんの${year}年${month}月のシフトをすべて削除しますか？`)) return;
+
+      const shifts = await apiGet('shifts.php');
+      const filtered = shifts.filter(shift => {
+        const shiftDate = new Date(shift.date);
+        return !(shift.name === name && shiftDate.getFullYear() === year && shiftDate.getMonth() + 1 === month);
+      });
+
+      await apiPost('shifts.php', filtered);
+      loadShifts();
+    }
+
+    async function deleteShift(shiftId) {
+      if (!confirm('このシフトを削除しますか？')) return;
+
+      const shifts = await apiGet('shifts.php');
+      const filtered = shifts.filter(s => s.id !== shiftId);
+      await apiPost('shifts.php', filtered);
+      loadShifts();
+    }
+
+    // === AIアドバイス機能 ===
+    async function uploadExcelFile() {
+      const fileInput = document.getElementById('excel-file');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        alert('ファイルを選択してください');
+        return;
+      }
+
+      const statusDiv = document.getElementById('excel-upload-status');
+      statusDiv.innerHTML = '<p style="color: #666;">アップロード中...</p>';
+
+      try {
+        // ファイルを読み込む（CSV形式として扱う）
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          try {
+            const text = e.target.result;
+            const lines = text.split('\n').filter(line => line.trim());
+            
+            // CSVデータを解析（「メニュー合計」行から来客数を抽出、曜日情報も取得）
+            const attendanceData = [];
+            const attendanceDataWithDays = [];
+            const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+            
+            // 曜日情報を取得（2行目に曜日が記載されている）
+            let dayRowIndex = -1;
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              const columns = line.split(',');
+              // 2列目が空で、3列目以降に曜日がある行を探す
+              if (columns.length > 2 && columns[0].trim() === '' && columns[1].trim() === '' && dayNames.includes(columns[2].trim())) {
+                dayRowIndex = i;
+                break;
+              }
+            }
+            
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              const columns = line.split(',');
+              
+              // 「メニュー合計」行を探す
+              if (columns.length > 1 && columns[1].trim() === 'メニュー合計') {
+                // 曜日情報を取得（同じセクションの曜日行から）
+                let sectionDayRow = null;
+                // この「メニュー合計」行より前の曜日行を探す
+                for (let k = Math.max(0, i - 30); k < i; k++) {
+                  const checkLine = lines[k];
+                  const checkColumns = checkLine.split(',');
+                  if (checkColumns.length > 2 && checkColumns[0].trim() === '' && checkColumns[1].trim() === '' && dayNames.includes(checkColumns[2].trim())) {
+                    sectionDayRow = checkColumns;
+                    break;
+                  }
+                }
+                
+                // 3列目以降から数値を抽出（日付列と「メニュー合計」列をスキップ）
+                for (let j = 2; j < columns.length; j++) {
+                  const value = columns[j].trim();
+                  
+                  // 数値または「✕」以外の空でない値をチェック
+                  // 0も有効な来客数データとして扱う（営業していない日など）
+                  if (value && value !== '✕' && value !== '') {
+                    const num = parseInt(value);
+                    if (!isNaN(num) && num >= 0) {
+                      attendanceData.push(num);
+                      
+                      // 曜日情報も保存
+                      let day = null;
+                      if (sectionDayRow && j < sectionDayRow.length) {
+                        const dayValue = sectionDayRow[j].trim();
+                        if (dayNames.includes(dayValue)) {
+                          day = dayValue;
+                        }
+                      }
+                      
+                      attendanceDataWithDays.push({
+                        attendance: num,
+                        day: day
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            if (attendanceData.length === 0) {
+              throw new Error('「メニュー合計」行から有効な来客数データが見つかりませんでした。CSVファイルの形式を確認してください。');
+            }
+
+            // JSONファイルとして保存（曜日情報も含む）
+            const data = {
+              attendance: attendanceData,
+              attendanceWithDays: attendanceDataWithDays,
+              uploaded_at: new Date().toISOString(),
+              total_records: attendanceData.length
+            };
+
+            // データをAPI経由で保存（簡易版：直接fetchで保存）
+            const response = await fetch('api/attendance-data.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+              throw new Error('データの保存に失敗しました');
+            }
+
+            statusDiv.innerHTML = `<p style="color: #28a745;">✅ アップロード成功！${attendanceData.length}件のデータを登録しました。</p>`;
+            loadAttendanceData();
+          } catch (error) {
+            console.error('ファイル処理エラー:', error);
+            statusDiv.innerHTML = `<p style="color: #dc3545;">❌ エラー: ${error.message}</p>`;
+          }
+        };
+        reader.readAsText(file);
+      } catch (error) {
+        console.error('ファイル読み込みエラー:', error);
+        statusDiv.innerHTML = `<p style="color: #dc3545;">❌ エラー: ${error.message}</p>`;
+      }
+    }
+
+    async function loadAttendanceData() {
+      try {
+        const response = await fetch('api/attendance-data.php');
+        if (!response.ok) {
+          throw new Error('データの読み込みに失敗しました');
+        }
+        const data = await response.json();
+        const displayDiv = document.getElementById('attendance-data-display');
+
+        if (data.attendance && data.attendance.length > 0) {
+          const avg = Math.round(data.attendance.reduce((a, b) => a + b, 0) / data.attendance.length);
+          const max = Math.max(...data.attendance);
+          const min = Math.min(...data.attendance);
+          
+          displayDiv.innerHTML = `
+            <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+              <p><strong>📊 データ件数:</strong> ${data.attendance.length}件</p>
+              <p><strong>📈 平均来客数:</strong> ${avg}人</p>
+              <p><strong>📊 最大来客数:</strong> ${max}人</p>
+              <p><strong>📉 最小来客数:</strong> ${min}人</p>
+              ${data.uploaded_at ? `<p><strong>📅 最終更新:</strong> ${new Date(data.uploaded_at).toLocaleString('ja-JP')}</p>` : ''}
+            </div>
+          `;
+        } else {
+          displayDiv.innerHTML = '<p style="color: #666;">来客数データが登録されていません</p>';
+        }
+      } catch (error) {
+        console.error('来客数データの読み込みエラー:', error);
+        document.getElementById('attendance-data-display').innerHTML =
+          '<p style="color: red;">データの読み込みに失敗しました</p>';
+      }
+    }
+
+    async function getMenuAdvice() {
+      const displayDiv = document.getElementById('menu-advice-display');
+      displayDiv.innerHTML = '<p style="color: #666;">🤖 AIがメニューを提案しています...</p>';
+
+      try {
+        const response = await fetch('api/ai-advice.php?action=menu');
+        if (!response.ok) {
+          throw new Error('API呼び出しに失敗しました');
+        }
+        const data = await response.json();
+
+        if (data.error) {
+          displayDiv.innerHTML = `<p style="color: #dc3545;">❌ エラー: ${data.error}</p>`;
+          return;
+        }
+
+        // 改行を保持して表示
+        const adviceText = data.advice.replace(/\n/g, '<br>');
+        displayDiv.innerHTML = `
+          <div style="white-space: pre-wrap; line-height: 1.8;">
+            ${adviceText}
+          </div>
+        `;
+      } catch (error) {
+        console.error('メニュー提案エラー:', error);
+        displayDiv.innerHTML = `<p style="color: #dc3545;">❌ エラー: ${error.message}</p>`;
+      }
+    }
+
+    async function getAttendancePrediction() {
+      const displayDiv = document.getElementById('attendance-prediction-display');
+      displayDiv.innerHTML = '<p style="color: #666;">🤖 AIが来客数を予測しています...</p>';
+
+      try {
+        const response = await fetch('api/ai-advice.php?action=attendance');
+        if (!response.ok) {
+          throw new Error('API呼び出しに失敗しました');
+        }
+        const data = await response.json();
+
+        if (data.error) {
+          displayDiv.innerHTML = `<p style="color: #dc3545;">❌ エラー: ${data.error}</p>`;
+          return;
+        }
+
+        // 予測結果を表示
+        let predictionText = '';
+        if (typeof data.prediction === 'string') {
+          predictionText = data.prediction.replace(/\n/g, '<br>');
+        } else {
+          predictionText = `予測来客数: 約${data.prediction}人<br>${data.details || ''}`;
+        }
+
+        displayDiv.innerHTML = `
+          <div style="white-space: pre-wrap; line-height: 1.8;">
+            ${predictionText}
+          </div>
+        `;
+      } catch (error) {
+        console.error('来客数予測エラー:', error);
+        displayDiv.innerHTML = `<p style="color: #dc3545;">❌ エラー: ${error.message}</p>`;
+      }
+    }
+
     // === 起動時 ===
     function renderLinks() {
       const base = window.location.href.replace(/[^/]*$/, '');
@@ -1461,9 +2291,12 @@
         loadMenus();
         loadHolidays();
         loadDailyMenus();
+        loadEvents();
         loadReservations();
         loadReviews();
         loadReservationTimes();
+        loadShifts();
+        loadAttendanceData();
         renderCalendar();
         renderLinks();
 

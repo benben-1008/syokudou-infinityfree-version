@@ -71,6 +71,10 @@
             <div class="link-icon">⭐</div>
             <h3>レビュー投稿</h3>
           </a>
+          <a href="allergy.html" class="link-card">
+            <div class="link-icon">🍽️</div>
+            <h3>アレルギー情報</h3>
+          </a>
         </div>
       </section>
 
@@ -145,6 +149,7 @@
       const calendarDiv = document.getElementById('calendar');
       const holidays = await apiGet('holidays.php');
       const dailyMenus = await apiGet('daily-menu.php');
+      const events = await apiGet('events.php');
       const today = new Date();
       const currentMonth = today.getMonth();
       const currentYear = today.getFullYear();
@@ -185,6 +190,7 @@
         const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
         const holiday = holidays.find(h => h.date === dateString);
         const dailyMenu = dailyMenus.find(m => m.date === dateString);
+        const event = events.find(e => e.date === dateString);
         const isSunday = dayOfWeek === 0;
         const isSaturday = dayOfWeek === 6;
         // 休業日かどうか（登録されている休業日または土日）
@@ -208,6 +214,15 @@
           dayContent = `${day}<br><small>${dailyMenu.food}</small>`;
         } else {
           dayClass += ' weekday';
+        }
+
+        // 行事・お知らせがある場合は追加表示
+        if (event) {
+          if (isHoliday || dailyMenu) {
+            dayContent += `<br><small style="color: #007bff;">📢 ${event.message}</small>`;
+          } else {
+            dayContent = `${day}<br><small style="color: #007bff;">📢 ${event.message}</small>`;
+          }
         }
 
         calendarHTML += `<div class="${dayClass}">${dayContent}</div>`;
@@ -237,6 +252,7 @@
         { name: '生徒用サイト (index.html)', file: 'index.html' },
         { name: '予約サイト (reservation.php)', file: 'reservation.php' },
         { name: 'レビュー投稿 (review.html)', file: 'review.html' },
+        { name: 'アレルギー情報 (allergy.html)', file: 'allergy.html' },
         { name: '食堂専用AIアシスタント (ai-assistant-php.html)', file: 'ai-assistant-php.html' }
       ];
       const linksDiv = document.getElementById('page-links');

@@ -68,10 +68,34 @@ $isWithinTime = true;
 $timeMessage = '';
 
 if ($reservationTimes && $reservationTimes['enabled']) {
-    $startTime = $reservationTimes['startTime'];
-    $endTime = $reservationTimes['endTime'];
-    $isWithinTime = $currentTime >= $startTime && $currentTime <= $endTime;
-    $timeMessage = $reservationTimes['message'] ?: "予約時間: {$startTime}-{$endTime}";
+    // 後方互換性: 古い形式を新しい形式に変換
+    $timeSlots = [];
+    if (isset($reservationTimes['timeSlots']) && is_array($reservationTimes['timeSlots'])) {
+        $timeSlots = $reservationTimes['timeSlots'];
+    } elseif (isset($reservationTimes['startTime']) && isset($reservationTimes['endTime'])) {
+        $timeSlots = [
+            ['startTime' => $reservationTimes['startTime'], 'endTime' => $reservationTimes['endTime']]
+        ];
+    }
+    
+    // 複数の時間帯をチェック
+    $isWithinTime = false;
+    foreach ($timeSlots as $slot) {
+        if ($currentTime >= $slot['startTime'] && $currentTime <= $slot['endTime']) {
+            $isWithinTime = true;
+            break;
+        }
+    }
+    
+    // メッセージを生成
+    if (!empty($timeSlots)) {
+        $timeStrings = array_map(function($slot) {
+            return "{$slot['startTime']}-{$slot['endTime']}";
+        }, $timeSlots);
+        $timeMessage = $reservationTimes['message'] ?: '予約時間: ' . implode(', ', $timeStrings);
+    } else {
+        $timeMessage = $reservationTimes['message'] ?: '予約時間が設定されていません';
+    }
 }
 
 // HTTPヘッダーの設定（セキュリティとパフォーマンス）
